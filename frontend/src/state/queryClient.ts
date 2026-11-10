@@ -21,4 +21,6 @@ export function createQueryClient(options: { retryDelayMs?: number } = {}): Quer
 
 export const queryKeys = {
   currentUser: ['auth', 'currentUser'] as const,
+  myInterviews: ['interviews', 'mine'] as const,
+  interview: (id: string) => ['interviews', 'detail', id] as const,
 };

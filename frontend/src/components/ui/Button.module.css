@@ -34,3 +34,17 @@
 .secondary:hover:not(:disabled) {
   background: var(--color-surface);
 }
+
+.link {
+  text-decoration: none;
+}
+
+.primary.link,
+.primary.link:hover {
+  color: var(--color-on-accent);
+}
+
+.secondary.link,
+.secondary.link:hover {
+  color: var(--color-text);
+}

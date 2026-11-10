@@ -36,7 +36,8 @@ describe('Route guards', () => {
     backend.signIn('thabo@example.com');
     const { user } = renderApp(['/']);
 
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await user.click(await screen.findByRole('button', { name: /account menu for thabo/i }));
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
 
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
     expect(backend.signedInUserId).toBeNull();
@@ -54,5 +55,17 @@ describe('Route guards', () => {
     renderApp(['/does-not-exist']);
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe('Page not found · VYou'));
+  });
+});
+
+describe('Focus after signing in', () => {
+  it('lands on the dashboard heading, not mid-page where the form used to be', async () => {
+    backend.addUser('thabo@example.com', 'Secret123', 'Thabo');
+    const { user } = renderApp(['/login']);
+    await user.type(await screen.findByLabelText('Email address'), 'thabo@example.com');
+    await user.type(screen.getByLabelText('Password'), 'Secret123');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    const heading = await screen.findByRole('heading', { name: 'Welcome, Thabo' });
+    await waitFor(() => expect(heading).toHaveFocus());
   });
 });

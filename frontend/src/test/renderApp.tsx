@@ -9,7 +9,7 @@ import { createQueryClient } from '../state/queryClient';
 /** Shows the current route, so tests can assert where navigation ended up. */
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{location.pathname}</output>;
+  return <div data-testid="location">{location.pathname}</div>;
 }
 
 /**

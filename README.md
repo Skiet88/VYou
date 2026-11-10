@@ -68,9 +68,11 @@ See `frontend/.env.example` for the two optional overrides.
 
 ```
 frontend/src
-├── components   UI only. ui/ (shared pieces), auth/, app/, pages/. Talk to hooks, never services.
-├── hooks        useCurrentUser/useLogin/useSignup/useLogout, useZodForm, useTheme. Talk to services.
-├── services     HttpClient (CSRF header, problem+json -> ApiError, schema-checked responses), AuthService.
+├── components   UI only. ui/ (shared pieces), app/ (shell, nav), auth/, interview/ (wizard, interview flow),
+│                pages/. Talk to hooks, never services.
+├── hooks        Auth and interview queries/mutations, useZodForm, useTheme, error wording. Talk to services.
+├── services     HttpClient (CSRF header, problem+json -> ApiError, schema-checked responses), AuthService,
+│                InterviewService.
 ├── schemas      Zod schemas: form validation and response validation from one definition.
 ├── state        Query client, theme provider, service injection.
 ├── util         Cookie reading, safe in-app redirects.
@@ -81,6 +83,13 @@ frontend/src
 The layer rules are enforced by ESLint (`eslint.config.js`), as are `react/no-danger`, no
 `innerHTML`, and no inline `style` (the backend's `default-src 'self'` CSP would block it).
 `AppProviders.tsx` and `App.tsx` at the root are the composition root that wires it all together.
+
+Screens so far: sign in / create account; the signed-in shell (sidebar with Dashboard, Interviews and
+admin-only Users, an account menu with theme and sign out, breadcrumbs, skip link, focus moved to each
+new page's heading); the three-step new-interview wizard (`/interviews/new`, step in the URL so Back
+works); and the interview itself (`/interviews/:id`): question, answer, practice-mode feedback or a
+saved confirmation, end-early confirmation, and a summary-first completion view. Typed answers are
+kept in memory only and survive every failure (rejection, AI unavailable, rate limit).
 
 Tests sit next to the code they cover and run against an MSW fake of the backend contract (same
 generic error messages, CSRF enforced). They include automated axe accessibility checks, and

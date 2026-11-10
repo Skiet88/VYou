@@ -1,20 +1,20 @@
 import { useCurrentUser } from '../../hooks/useAuth';
-import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { AppHeader } from '../app/AppHeader';
+import { PageLayout } from '../app/PageLayout';
+import { ButtonLink } from '../ui/ButtonLink';
 import styles from './DashboardPage.module.css';
 
-/** Placeholder until the real dashboard is built; proves the signed-in flow end to end. */
+/** Interim dashboard: one clear action. Progress and recent results come with the dashboard work. */
 export function DashboardPage() {
-  useDocumentTitle('Dashboard');
   const { data: user } = useCurrentUser();
-
   return (
-    <>
-      <AppHeader />
-      <main className={styles.main}>
-        <h1>Welcome, {user?.displayName}</h1>
-        <p className={styles.muted}>Your dashboard is coming next.</p>
-      </main>
-    </>
+    <PageLayout title="Dashboard">
+      <h1>Welcome, {user?.displayName}</h1>
+      <p className={styles.muted}>Practise an interview and get feedback on every answer.</p>
+      <div>
+        <ButtonLink to="/interviews/new" variant="primary">
+          Start interview
+        </ButtonLink>
+      </div>
+    </PageLayout>
   );
 }

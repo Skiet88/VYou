@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import styles from './Button.module.css';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -8,10 +8,14 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   busyLabel?: string;
 }
 
-export function Button({ variant = 'secondary', busy = false, busyLabel, children, disabled, type = 'button', className, ...rest }: ButtonProps) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { variant = 'secondary', busy = false, busyLabel, children, disabled, type = 'button', className, ...rest },
+  ref,
+) {
   return (
     <button
       {...rest}
+      ref={ref}
       type={type}
       className={[styles.button, styles[variant], className].filter(Boolean).join(' ')}
       disabled={disabled || busy}
@@ -20,4 +24,4 @@ export function Button({ variant = 'secondary', busy = false, busyLabel, childre
       {busy && busyLabel ? busyLabel : children}
     </button>
   );
-}
+});

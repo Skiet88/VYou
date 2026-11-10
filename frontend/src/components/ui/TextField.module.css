@@ -32,3 +32,10 @@
 .hasError .input {
   border: 2px solid var(--color-error);
 }
+
+.textarea {
+  min-height: 10rem;
+  padding: var(--space-3);
+  line-height: var(--line-height);
+  resize: vertical;
+}

@@ -5,7 +5,7 @@ import styles from './DashboardPage.module.css';
 export function NotFoundPage() {
   useDocumentTitle('Page not found');
   return (
-    <main className={styles.main}>
+    <main className={styles.standalone}>
       <h1>Page not found</h1>
       <p className={styles.muted}>
         Check the address, or <Link to="/">go to your dashboard</Link>.
