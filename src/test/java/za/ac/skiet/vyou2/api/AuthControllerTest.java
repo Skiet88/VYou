@@ -108,6 +108,34 @@ class AuthControllerTest {
     }
 
     @Test
+    void loginRotatesAPreExistingSessionId() throws Exception {
+        String email = "fixation-" + UUID.randomUUID() + "@example.com";
+        AuthTestSupport.signup(mvc, mapper, email, "Secret123");
+
+        // A session id the "attacker" already knows, present before the victim logs in.
+        var planted = new org.springframework.mock.web.MockHttpSession(null, "attacker-known-id");
+        mvc.perform(post("/api/auth/login").with(csrf()).session(planted).contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new LoginBody(email, "Secret123"))))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(planted.getId()).isNotEqualTo("attacker-known-id");
+        // Still the same (now authenticated) session object, just under a fresh id.
+        mvc.perform(get("/api/auth/me").session(planted)).andExpect(status().isOk());
+    }
+
+    @Test
+    void signupRotatesAPreExistingSessionId() throws Exception {
+        var planted = new org.springframework.mock.web.MockHttpSession(null, "attacker-known-id-2");
+        mvc.perform(post("/api/auth/signup").with(csrf()).session(planted).contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(java.util.Map.of(
+                                "email", "fixation2-" + UUID.randomUUID() + "@example.com",
+                                "displayName", "Fixation", "password", "Secret123"))))
+                .andExpect(status().isCreated());
+
+        org.assertj.core.api.Assertions.assertThat(planted.getId()).isNotEqualTo("attacker-known-id-2");
+    }
+
+    @Test
     void logoutEndsTheSession() throws Exception {
         var session = AuthTestSupport.signup(mvc, mapper, "logout-" + UUID.randomUUID() + "@example.com", "Secret123");
         mvc.perform(post("/api/auth/logout").with(csrf()).session(session)).andExpect(status().isOk());

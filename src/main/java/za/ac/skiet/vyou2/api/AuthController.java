@@ -79,6 +79,12 @@ public class AuthController {
         } catch (org.springframework.security.authentication.DisabledException ex) {
             throw new BadCredentialsException("Invalid email or password");
         }
+        // Session fixation protection: Spring Security's own login filters rotate the session id
+        // on authentication; this manual login path must do the same, or a session id known to
+        // an attacker before login would still be valid (and now authenticated) after it.
+        if (request.getSession(false) != null) {
+            request.changeSessionId();
+        }
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(result);
         SecurityContextHolder.setContext(context);
