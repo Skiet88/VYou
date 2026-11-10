@@ -84,7 +84,8 @@ The layer rules are enforced by ESLint (`eslint.config.js`), as are `react/no-da
 `innerHTML`, and no inline `style` (the backend's `default-src 'self'` CSP would block it).
 `AppProviders.tsx` and `App.tsx` at the root are the composition root that wires it all together.
 
-Screens so far: sign in / create account; the signed-in shell (sidebar with Dashboard, Interviews and
+Screens so far: sign in / create account; the dashboard (resume an unfinished interview or start
+one, completed count and recent average, last three results); the signed-in shell (sidebar with Dashboard, Interviews and
 admin-only Users, an account menu with theme and sign out, breadcrumbs, skip link, focus moved to each
 new page's heading); the three-step new-interview wizard (`/interviews/new`, step in the URL so Back
 works); and the interview itself (`/interviews/:id`): question, answer, practice-mode feedback or a

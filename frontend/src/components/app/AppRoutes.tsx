@@ -9,8 +9,10 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 import { SignupPage } from '../pages/SignupPage';
 import { UsersPage } from '../pages/UsersPage';
 import { AppShell } from './AppShell';
+import { useRecordInitialLocation } from './navigationFocus';
 
 export function AppRoutes() {
+  useRecordInitialLocation();
   return (
     <Routes>
       <Route

@@ -15,9 +15,9 @@ function StatusText({ item }: { item: InterviewListItem }) {
   );
 }
 
-export function InterviewList({ items }: { items: InterviewListItem[] }) {
+export function InterviewList({ items, label = 'Your interviews' }: { items: InterviewListItem[]; label?: string }) {
   return (
-    <ul className={styles.list} aria-label="Your interviews">
+    <ul className={styles.list} aria-label={label}>
       {items.map((item) => (
         <li key={item.id} className={styles.row}>
           <div className={styles.main}>

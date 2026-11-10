@@ -72,3 +72,13 @@ a:hover {
     animation: none !important;
   }
 }
+
+/*
+ * Headings receive focus programmatically (after navigation, on a new wizard step or question)
+ * so screen readers announce them. They are not controls, so no focus ring: every interactive
+ * element keeps its :focus-visible ring above.
+ */
+h1[tabindex='-1']:focus,
+h2[tabindex='-1']:focus {
+  outline: none;
+}

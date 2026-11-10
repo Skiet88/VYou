@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '../../hooks/useAuth';
 import { AccountMenu } from './AccountMenu';
+import { isInitialLocation } from './navigationFocus';
 import styles from './AppShell.module.css';
 
 interface NavItem {
@@ -30,10 +31,10 @@ export function AppShell() {
 
   // On client-side navigation (including arriving from sign-in/sign-up, which also mounts this
   // shell), move focus to the new page's heading so keyboard and screen-reader users start at the
-  // new content. Only a real page load (router key "default") is left alone: the browser already
-  // starts focus at the top of the document there.
+  // new content. The page the browser loaded (or reloaded) is left alone: focus already starts at
+  // the top of the document there.
   useEffect(() => {
-    if (location.key === 'default') return;
+    if (isInitialLocation(location.key)) return;
     const heading = mainRef.current?.querySelector('h1');
     const target = heading ?? mainRef.current;
     if (target) {
