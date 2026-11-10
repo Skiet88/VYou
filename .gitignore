@@ -36,3 +36,9 @@ build/
 .env
 application-local.properties
 src/main/resources/application-local.properties
+
+### Frontend (Node/Vite) ###
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/*.tsbuildinfo

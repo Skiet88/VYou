@@ -40,35 +40,74 @@ such as `InterviewSessionFactory.complete(session, now)` returns a new instance 
 ```bash
 export GITHUB_TOKEN=...   # fine-grained token with the "Models: read" permission
 export DB_URL=jdbc:postgresql://localhost:5432/vyou2 DB_USERNAME=postgres DB_PASSWORD=...
+export VYOU_ENCRYPTION_KEY=$(openssl rand -base64 32)   # AES-256 key for answers/feedback at rest
 ./mvnw spring-boot:run
 ```
 
-The app starts without a token. AI endpoints then return `503` with a message explaining what to set.
+The app refuses to start without `VYOU_ENCRYPTION_KEY`. It starts fine without `GITHUB_TOKEN`; AI
+endpoints then return `503` with a message explaining what to set.
 
 To use a different OpenAI-compatible provider, set `VYOU_LLM_BASE_URL`, `VYOU_LLM_MODEL` and
 `VYOU_LLM_API_KEY`. For Groq: `https://api.groq.com/openai/v1` with `openai/gpt-oss-120b`.
 
+## Frontend (dev)
+
+```bash
+cd frontend
+npm install
+npm run dev   # http://localhost:5173
+```
+
+Run the backend (above) in a second terminal first. Vite proxies `/api/*` to `http://localhost:8080`
+(`vite.config.ts`), so the browser only ever talks to `localhost:5173` — this is what makes the
+session cookie's `SameSite=Lax` setting work correctly in dev, matching how it behaves in production
+behind a single reverse-proxied origin. Never point the frontend at the backend's origin directly;
+that would force a weaker `SameSite=None` cookie. See `frontend/.env.example` for the one optional
+override (a non-default backend address).
+
+`frontend/src/App.tsx` is a connectivity check only — it confirms the proxy, cookies and backend are
+wired together, not a real screen. It gets replaced once the actual UI (components/hooks/services/
+schemas layers) is built.
+
+## Authentication & security
+
+- Sessions are server-side (httpOnly, `SameSite=Lax` cookie); no token is ever readable from
+  JavaScript. `POST /api/auth/signup`, `/login`, `/logout`, `GET /api/auth/me`.
+- CSRF protection is on for every state-changing request: read the `XSRF-TOKEN` cookie and echo it
+  back in an `X-XSRF-TOKEN` header (the standard Spring Security SPA pattern).
+- Every interview endpoint acts for the authenticated caller only; a session ID that exists but
+  belongs to someone else returns `404`, identical to a missing one.
+- Rate limits apply to `/api/auth/*` (by IP) and the AI-calling endpoints (by user); both return
+  `429` when exceeded. CORS is restricted to `VYOU_CORS_ALLOWED_ORIGINS` (default:
+  `http://localhost:5173,http://localhost:3000`).
+- `/swagger-ui.html` / `/v3/api-docs` are available by default, off in the `prod` profile
+  (`application-prod.properties`).
+
 ## API
 
-Full contract for the frontend: `/swagger-ui.html` (spec at `/v3/api-docs`).
-CORS allows `http://localhost:5173` and `:3000` by default (`VYOU_CORS_ALLOWED_ORIGINS`).
+Full contract: `/swagger-ui.html` (spec at `/v3/api-docs`). Every endpoint below except signup/login
+requires an active session.
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/users` | `{"email","displayName"}` → user (`409` if the email is taken) |
-| GET  | `/api/users/{id}` | user |
-| GET  | `/api/users/{id}/interviews` | the user's sessions, newest first |
-| POST | `/api/interviews` | `{"userId","jobRole","level":"INTERN\|JUNIOR\|MID\|SENIOR","mode"}` → session with first question |
-| POST | `/api/interviews/{id}/answers` | `{"answer"}` → evaluation (scores 0–10, strengths, improvements) and next question |
+| POST | `/api/auth/signup` | `{"email","displayName","password"}` → user, and logs in |
+| POST | `/api/auth/login` | `{"email","password"}` → user |
+| POST | `/api/auth/logout` | ends the session |
+| GET  | `/api/auth/me` | the current user |
+| POST | `/api/interviews` | `{"jobRole","level":"INTERN\|JUNIOR\|MID\|SENIOR","mode","feedbackMode":"INSTANT\|END_OF_INTERVIEW"}` → session with first question |
+| GET  | `/api/interviews/mine` | the caller's sessions, newest first |
+| POST | `/api/interviews/{id}/answers` | `{"answer"}` → evaluation and next question (evaluation withheld until completion in `END_OF_INTERVIEW` mode) |
 | POST | `/api/interviews/{id}/complete` | end the session; includes the GPT-4o summary when available |
 | POST | `/api/interviews/{id}/summary` | get the summary, generating it if completion couldn't |
 | GET  | `/api/interviews/{id}` | session, all turns, and summary |
 
-A rejected answer (too short, or a repeat of the question) returns `422` with `reasons`, and no LLM
-quota is used. When the daily rate limit is reached the API returns `503`.
+A fixed number of questions per interview (default 5, `vyou.interview.question-count`) auto-completes
+the session on the last answer. A rejected answer (too short, or a repeat of the question) returns
+`422` with `reasons`, and no LLM quota is used. When the daily rate limit is reached the API returns
+`503`.
 
 ## Tests
 
 `./mvnw test` needs no database or API key. It covers factories, screening, evaluator parsing, the
-LLM client's retry rules (against a mock server), and end-to-end API flows on H2 with a fake LLM,
-including an AI outage partway through an interview.
+LLM client's retry rules (against a mock server), encryption and PII redaction, and end-to-end API
+flows (auth, ownership/IDOR, CSRF, rate limiting, feedback modes) on H2 with a fake LLM.
