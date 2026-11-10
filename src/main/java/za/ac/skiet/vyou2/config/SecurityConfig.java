@@ -25,6 +25,9 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfigurationSource;
 import jakarta.servlet.DispatcherType;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 
 /**
@@ -60,6 +63,15 @@ public class SecurityConfig {
                                            ActiveAccountFilter activeAccountFilter,
                                            ProblemDetailAuthenticationEntryPoint authenticationEntryPoint,
                                            ProblemDetailAccessDeniedHandler accessDeniedHandler) throws Exception {
+        // Matched on the decoded, normalised path, exactly as Spring MVC routes requests. Checking the
+        // raw URI string instead would let "/%61pi/..." (= "/api/...") count as a public page GET
+        // while still being routed to an API controller.
+        PathPatternRequestMatcher.Builder paths = PathPatternRequestMatcher.withDefaults();
+        RequestMatcher api = paths.matcher("/api/**");
+        RequestMatcher actuator = paths.matcher("/actuator/**");
+        RequestMatcher frontendPage = request -> HttpMethod.GET.matches(request.getMethod())
+                && !api.matches(request) && !actuator.matches(request);
+
         CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         // SPA pattern: the token lives in a readable (non-httpOnly) cookie so the frontend can
         // copy it into an X-XSRF-TOKEN request header; the cookie itself never authenticates
@@ -75,7 +87,7 @@ public class SecurityConfig {
                 .frameOptions(frame -> frame.deny())
                 .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
-                    "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'")))
+                    "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'")))
             .authorizeHttpRequests(authorize -> authorize
                 // Spring Boot's error page handling forwards to the servlet container under
                 // DispatcherType.ERROR (e.g. after CsrfFilter's own sendError(403)). Without this,
@@ -86,6 +98,11 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // The frontend itself (index.html, /assets, client-side routes) must load for signed-out
+                // visitors so they can reach the sign-in page. Only plain page GETs outside /api and
+                // /actuator are opened; every API call still needs a session, and anything else
+                // (other methods, other paths) is denied by default below.
+                .requestMatchers(frontendPage).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint).accessDeniedHandler(accessDeniedHandler))
             // Re-checks the account against the database before any authorization decision.

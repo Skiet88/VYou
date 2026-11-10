@@ -102,6 +102,22 @@ generic error messages, CSRF enforced). They include automated axe accessibility
 `styles/contrast.test.ts` checks every text/background and border pair in both themes against WCAG
 AA using the real token values.
 
+## Production build (one deployable, one origin)
+
+```bash
+(cd frontend && npm ci && npm run build)   # writes frontend/dist
+./mvnw package                              # the jar now includes frontend/dist as static files
+java -jar target/vyou2-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+The backend serves the built app from the same origin as the API, so the session cookie stays
+`SameSite=Lax` and the backend's CSP and security headers cover the app too. Client-side routes
+(`/interviews/123`) get `index.html`, so deep links and reloads work; `/api/**` and missing files
+never fall back to it. Hashed `/assets/**` are cached for a year; `index.html` is always revalidated.
+Run it behind HTTPS (a reverse proxy terminating TLS): the `prod` profile keeps the session cookie
+`Secure` and turns the API docs off. Without `npm run build` first, `./mvnw package` still works and
+simply produces an API-only jar.
+
 ## Authentication & security
 
 - Sessions are server-side (httpOnly, `SameSite=Lax` cookie); no token is ever readable from

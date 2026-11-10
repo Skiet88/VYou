@@ -77,6 +77,19 @@
         </dependency>
     </dependencies>
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!--
+              The built frontend (npm run build in frontend/), served by the backend from one origin.
+              Skipped automatically when it hasn't been built, so dev and tests don't need it.
+            -->
+            <resource>
+                <directory>frontend/dist</directory>
+                <targetPath>static</targetPath>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
