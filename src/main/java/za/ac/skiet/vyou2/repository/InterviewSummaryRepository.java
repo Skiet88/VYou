@@ -22,6 +22,17 @@ public interface InterviewSummaryRepository extends JpaRepository<InterviewSumma
             + "where s.sessionId in :sessionIds")
     List<SessionAverage> averagesForSessions(@Param("sessionIds") Collection<UUID> sessionIds);
 
+    /** Each user's mean summary score across their interviews (numbers only, no text), one query. */
+    @Query("select sess.userId as userId, avg(s.averageOverall) as averageOverall from InterviewSummary s, InterviewSession sess "
+            + "where s.sessionId = sess.id and sess.userId in :userIds group by sess.userId")
+    List<UserAverage> averagesForUsers(@Param("userIds") Collection<UUID> userIds);
+
+    interface UserAverage {
+        UUID getUserId();
+
+        double getAverageOverall();
+    }
+
     interface SessionAverage {
         UUID getSessionId();
 

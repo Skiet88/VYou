@@ -1,6 +1,8 @@
 package za.ac.skiet.vyou2.config;
 
+import za.ac.skiet.vyou2.security.ActiveAccountFilter;
 import za.ac.skiet.vyou2.security.CsrfCookieFilter;
+import za.ac.skiet.vyou2.security.ProblemDetailAccessDeniedHandler;
 import za.ac.skiet.vyou2.security.ProblemDetailAuthenticationEntryPoint;
 import za.ac.skiet.vyou2.security.RateLimitFilter;
 import za.ac.skiet.vyou2.security.RequestSizeLimitFilter;
@@ -55,7 +57,9 @@ public class SecurityConfig {
                                            RequestSizeLimitFilter requestSizeLimitFilter,
                                            RateLimitFilter rateLimitFilter,
                                            CsrfCookieFilter csrfCookieFilter,
-                                           ProblemDetailAuthenticationEntryPoint authenticationEntryPoint) throws Exception {
+                                           ActiveAccountFilter activeAccountFilter,
+                                           ProblemDetailAuthenticationEntryPoint authenticationEntryPoint,
+                                           ProblemDetailAccessDeniedHandler accessDeniedHandler) throws Exception {
         CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         // SPA pattern: the token lives in a readable (non-httpOnly) cookie so the frontend can
         // copy it into an X-XSRF-TOKEN request header; the cookie itself never authenticates
@@ -81,8 +85,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/signup", "/api/auth/login").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
-            .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint).accessDeniedHandler(accessDeniedHandler))
+            // Re-checks the account against the database before any authorization decision.
+            .addFilterBefore(activeAccountFilter, AuthorizationFilter.class)
             .addFilterAfter(rateLimitFilter, AuthorizationFilter.class)
             .addFilterAfter(csrfCookieFilter, org.springframework.security.web.authentication.www.BasicAuthenticationFilter.class)
             .addFilterBefore(requestSizeLimitFilter, org.springframework.security.web.context.SecurityContextHolderFilter.class);

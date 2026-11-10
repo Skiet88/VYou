@@ -178,8 +178,9 @@ class InterviewListApiTest {
 
         long elevenQueries = statementsFor(eleven);
         assertThat(statementsFor(thirty)).isEqualTo(elevenQueries);
-        assertThat(elevenQueries).isLessThanOrEqualTo(4); // page + total count + answer counts + averages
-        assertThat(statementsFor(two)).isLessThanOrEqualTo(4);
+        // account re-check (ActiveAccountFilter) + page + total count + answer counts + averages
+        assertThat(elevenQueries).isLessThanOrEqualTo(5);
+        assertThat(statementsFor(two)).isLessThanOrEqualTo(5);
     }
 
     private long statementsFor(SignedIn user) throws Exception {

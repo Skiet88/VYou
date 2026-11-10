@@ -110,6 +110,14 @@ AA using the real token values.
 - Rate limits apply to `/api/auth/*` (by IP) and the AI-calling endpoints (by user); both return
   `429` when exceeded. CORS is restricted to `VYOU_CORS_ALLOWED_ORIGINS` (default:
   `http://localhost:5173,http://localhost:3000`).
+- Role and status are re-read from the database on every authenticated request
+  (`ActiveAccountFilter`): suspending a user signs them out on their very next request, and a role
+  change applies immediately, without a new login.
+- Admins (`/api/admin/**`, `ROLE_ADMIN`) can list users with aggregate numbers and suspend or
+  reinstate them, but never see interview content, and can't suspend themselves or other admins.
+  Admin actions are written to the `vyou.audit` logger with ids only. There is deliberately no
+  promote-to-admin endpoint; create the first admin directly in the database:
+  `UPDATE users SET role = 'ADMIN' WHERE email = 'you@example.com';`
 - `/swagger-ui.html` / `/v3/api-docs` are available by default, off in the `prod` profile
   (`application-prod.properties`).
 
@@ -130,6 +138,9 @@ requires an active session.
 | POST | `/api/interviews/{id}/complete` | end the session; includes the GPT-4o summary when available |
 | POST | `/api/interviews/{id}/summary` | get the summary, generating it if completion couldn't |
 | GET  | `/api/interviews/{id}` | session, all turns, and summary |
+| GET  | `/api/admin/users` | admin: `?search=&status=ACTIVE\|SUSPENDED&page=0&size=20` → users with interview counts and average score |
+| POST | `/api/admin/users/{id}/suspend` | admin: suspend (not yourself, not another admin) |
+| POST | `/api/admin/users/{id}/reinstate` | admin: reinstate |
 
 A fixed number of questions per interview (default 5, `vyou.interview.question-count`) auto-completes
 the session on the last answer. A rejected answer (too short, or a repeat of the question) returns
