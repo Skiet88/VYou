@@ -92,8 +92,8 @@ export function NewInterviewWizard() {
 }
 
 function ResumePrompt() {
-  const { data } = useMyInterviews();
-  const inProgress = data?.find((session) => session.status === 'IN_PROGRESS');
+  const { data } = useMyInterviews({ status: 'IN_PROGRESS', size: 1 });
+  const inProgress = data?.items[0];
   if (!inProgress) return null;
   return (
     <div className={styles.resume}>

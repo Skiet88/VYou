@@ -21,6 +21,9 @@ export function createQueryClient(options: { retryDelayMs?: number } = {}): Quer
 
 export const queryKeys = {
   currentUser: ['auth', 'currentUser'] as const,
+  /** Prefix for every page of the list, so one invalidation refreshes all of them. */
   myInterviews: ['interviews', 'mine'] as const,
+  myInterviewsPage: (query: { page?: number; size?: number; status?: string }) =>
+    ['interviews', 'mine', query.status ?? 'ALL', query.page ?? 0, query.size ?? 10] as const,
   interview: (id: string) => ['interviews', 'detail', id] as const,
 };

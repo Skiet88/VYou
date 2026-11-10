@@ -19,6 +19,31 @@ export const SessionSchema = z.object({
   endedAt: z.string().nullable(),
 });
 
+/** A row in the interview list (no question, answer or feedback text). */
+export const InterviewListItemSchema = z.object({
+  id: z.string().uuid(),
+  jobRole: z.string(),
+  level: ExperienceLevelSchema,
+  status: InterviewStatusSchema,
+  feedbackMode: FeedbackModeSchema,
+  totalQuestions: z.number().int(),
+  questionsAnswered: z.number().int(),
+  averageOverall: z.number().nullable(),
+  startedAt: z.string(),
+  endedAt: z.string().nullable(),
+});
+
+export const pageOf = <T extends z.ZodType>(item: T) =>
+  z.object({
+    items: z.array(item),
+    page: z.number().int(),
+    size: z.number().int(),
+    totalItems: z.number().int(),
+    totalPages: z.number().int(),
+  });
+
+export const InterviewPageSchema = pageOf(InterviewListItemSchema);
+
 export const EvaluationSchema = z.object({
   clarity: z.number(),
   technical: z.number(),
@@ -81,6 +106,14 @@ export const AnswerInputSchema = z.object({
 export type ExperienceLevel = z.infer<typeof ExperienceLevelSchema>;
 export type FeedbackMode = z.infer<typeof FeedbackModeSchema>;
 export type Session = z.infer<typeof SessionSchema>;
+export type InterviewStatus = z.infer<typeof InterviewStatusSchema>;
+export type InterviewListItem = z.infer<typeof InterviewListItemSchema>;
+export type InterviewPage = z.infer<typeof InterviewPageSchema>;
+export interface InterviewListQuery {
+  page?: number;
+  size?: number;
+  status?: InterviewStatus;
+}
 export type Evaluation = z.infer<typeof EvaluationSchema>;
 export type Turn = z.infer<typeof TurnSchema>;
 export type Summary = z.infer<typeof SummarySchema>;

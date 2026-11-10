@@ -54,6 +54,15 @@ export const TOTAL_QUESTIONS = 5;
 export const MIN_WORDS = 5;
 export const question = (n: number) => `Interview question number ${n}?`;
 
+/** A completed, summarised turn for seeding finished interviews in tests. */
+export const scoredTurn = (n: number, answer = `My answer to question ${n}, with a real example.`) => ({
+  sequenceNumber: n,
+  question: question(n),
+  answer,
+  evaluation: { clarity: 8, technical: 7, confidence: 6, overall: 7, strengths: ['Concrete example'], improvements: ['Quantify the impact'] },
+  answeredAt: new Date().toISOString(),
+});
+
 export const backend = {
   reset() {
     state.users.clear();
@@ -88,7 +97,7 @@ export const backend = {
       currentQuestion: question(1),
       turns: [],
       summary: null,
-      startedAt: new Date().toISOString(),
+      startedAt: new Date(Date.UTC(2026, 0, 1, 9, 0, state.interviews.size)).toISOString(),
       endedAt: null,
       ...overrides,
     };
@@ -241,11 +250,32 @@ handlers.push(
     return HttpResponse.json(sessionJson(interview), { status: 201 });
   }),
 
-  http.get('*/api/interviews/mine', () => {
+  http.get('*/api/interviews/mine', ({ request }) => {
     const rejected = requireSession();
     if (rejected) return rejected;
-    const mine = [...state.interviews.values()].filter((i) => i.ownerId === state.sessionUserId).reverse();
-    return HttpResponse.json(mine.map(sessionJson));
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') ?? '0');
+    const size = Number(url.searchParams.get('size') ?? '10');
+    const status = url.searchParams.get('status');
+    if (!Number.isInteger(page) || page < 0 || !Number.isInteger(size) || size < 1 || size > 50) {
+      return problem(400, 'Invalid request', 'Invalid paging parameters');
+    }
+    const mine = [...state.interviews.values()]
+      .filter((i) => i.ownerId === state.sessionUserId && (!status || i.status === status))
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+    const items = mine.slice(page * size, page * size + size).map((i) => ({
+      id: i.id,
+      jobRole: i.jobRole,
+      level: i.level,
+      status: i.status,
+      feedbackMode: i.feedbackMode,
+      totalQuestions: i.totalQuestions,
+      questionsAnswered: i.turns.length,
+      averageOverall: (i.summary?.averageOverall as number | undefined) ?? null,
+      startedAt: i.startedAt,
+      endedAt: i.endedAt,
+    }));
+    return HttpResponse.json({ items, page, size, totalItems: mine.length, totalPages: Math.ceil(mine.length / size) });
   }),
 
   http.get('*/api/interviews/:id', ({ params }) => {

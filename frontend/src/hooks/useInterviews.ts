@@ -1,11 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AnswerResult, SessionDetails, StartInterviewInput } from '../schemas/interview';
+import type { AnswerResult, InterviewListQuery, SessionDetails, StartInterviewInput } from '../schemas/interview';
 import { queryKeys } from '../state/queryClient';
 import { useServices } from './useServices';
 
-export function useMyInterviews() {
+export function useMyInterviews(query: InterviewListQuery = {}) {
   const { interviews } = useServices();
-  return useQuery({ queryKey: queryKeys.myInterviews, queryFn: () => interviews.mine() });
+  const key = queryKeys.myInterviewsPage(query);
+  return useQuery({
+    queryKey: key,
+    queryFn: () => interviews.mine(query),
+    // While paging within the same filter, keep showing the current page until the next one
+    // arrives. Never across a filter change: old rows under a new filter label would mislead.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery && previousQuery.queryKey[2] === key[2] && previousQuery.queryKey[4] === key[4] ? previous : undefined,
+  });
 }
 
 export function useInterview(id: string) {

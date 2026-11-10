@@ -88,7 +88,9 @@ Screens so far: sign in / create account; the signed-in shell (sidebar with Dash
 admin-only Users, an account menu with theme and sign out, breadcrumbs, skip link, focus moved to each
 new page's heading); the three-step new-interview wizard (`/interviews/new`, step in the URL so Back
 works); and the interview itself (`/interviews/:id`): question, answer, practice-mode feedback or a
-saved confirmation, end-early confirmation, and a summary-first completion view. Typed answers are
+saved confirmation, end-early confirmation, and a summary-first completion view with a collapsed
+question-by-question breakdown; and the Interviews list (`/interviews`: All / In progress / Completed
+filter, 10 per page, filter and page in the URL). Typed answers are
 kept in memory only and survive every failure (rejection, AI unavailable, rate limit).
 
 Tests sit next to the code they cover and run against an MSW fake of the backend contract (same
@@ -122,7 +124,7 @@ requires an active session.
 | POST | `/api/auth/logout` | ends the session |
 | GET  | `/api/auth/me` | the current user |
 | POST | `/api/interviews` | `{"jobRole","level":"INTERN\|JUNIOR\|MID\|SENIOR","mode","feedbackMode":"INSTANT\|END_OF_INTERVIEW"}` → session with first question |
-| GET  | `/api/interviews/mine` | the caller's sessions, newest first |
+| GET  | `/api/interviews/mine` | `?page=0&size=10&status=IN_PROGRESS\|COMPLETED` → a page of the caller's interviews, newest first (size 1–50) |
 | POST | `/api/interviews/{id}/answers` | `{"answer"}` → evaluation and next question (evaluation withheld until completion in `END_OF_INTERVIEW` mode) |
 | POST | `/api/interviews/{id}/complete` | end the session; includes the GPT-4o summary when available |
 | POST | `/api/interviews/{id}/summary` | get the summary, generating it if completion couldn't |
