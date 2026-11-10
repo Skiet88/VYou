@@ -1,0 +1,9 @@
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-4);
+  color: var(--color-text-muted);
+  text-align: center;
+}

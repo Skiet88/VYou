@@ -50,24 +50,42 @@ endpoints then return `503` with a message explaining what to set.
 To use a different OpenAI-compatible provider, set `VYOU_LLM_BASE_URL`, `VYOU_LLM_MODEL` and
 `VYOU_LLM_API_KEY`. For Groq: `https://api.groq.com/openai/v1` with `openai/gpt-oss-120b`.
 
-## Frontend (dev)
+## Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev   # http://localhost:5173
+npm run dev     # http://localhost:5173 (start the backend first)
+npm run check   # typecheck + lint + tests + npm audit
 ```
 
-Run the backend (above) in a second terminal first. Vite proxies `/api/*` to `http://localhost:8080`
-(`vite.config.ts`), so the browser only ever talks to `localhost:5173` — this is what makes the
-session cookie's `SameSite=Lax` setting work correctly in dev, matching how it behaves in production
-behind a single reverse-proxied origin. Never point the frontend at the backend's origin directly;
-that would force a weaker `SameSite=None` cookie. See `frontend/.env.example` for the one optional
-override (a non-default backend address).
+Vite proxies `/api/*` to `http://localhost:8080` (`vite.config.ts`), so the browser only ever talks
+to `localhost:5173`. That keeps the session cookie's `SameSite=Lax` setting working in dev, matching
+production behind a single reverse-proxied origin. Never point the frontend at the backend's origin
+directly; that would force a weaker `SameSite=None` cookie. Browsers treat `localhost` as a secure
+context, so the backend's `Secure` session cookie works over plain HTTP locally without any flag.
+See `frontend/.env.example` for the two optional overrides.
 
-`frontend/src/App.tsx` is a connectivity check only — it confirms the proxy, cookies and backend are
-wired together, not a real screen. It gets replaced once the actual UI (components/hooks/services/
-schemas layers) is built.
+```
+frontend/src
+├── components   UI only. ui/ (shared pieces), auth/, app/, pages/. Talk to hooks, never services.
+├── hooks        useCurrentUser/useLogin/useSignup/useLogout, useZodForm, useTheme. Talk to services.
+├── services     HttpClient (CSRF header, problem+json -> ApiError, schema-checked responses), AuthService.
+├── schemas      Zod schemas: form validation and response validation from one definition.
+├── state        Query client, theme provider, service injection.
+├── util         Cookie reading, safe in-app redirects.
+├── config       Environment-based config (API path; no hosts, no secrets).
+└── styles       Design tokens (one type scale, light/dark) and base styles.
+```
+
+The layer rules are enforced by ESLint (`eslint.config.js`), as are `react/no-danger`, no
+`innerHTML`, and no inline `style` (the backend's `default-src 'self'` CSP would block it).
+`AppProviders.tsx` and `App.tsx` at the root are the composition root that wires it all together.
+
+Tests sit next to the code they cover and run against an MSW fake of the backend contract (same
+generic error messages, CSRF enforced). They include automated axe accessibility checks, and
+`styles/contrast.test.ts` checks every text/background and border pair in both themes against WCAG
+AA using the real token values.
 
 ## Authentication & security
 

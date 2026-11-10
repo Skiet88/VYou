@@ -1,0 +1,21 @@
+.summary {
+  padding: var(--space-4);
+  border: 2px solid var(--color-error);
+  border-radius: var(--radius);
+  background: var(--color-error-surface);
+}
+
+.title {
+  font-size: var(--font-size-md);
+  margin-bottom: var(--space-2);
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--space-6);
+}
+
+.list a {
+  color: var(--color-error);
+  font-weight: var(--font-weight-strong);
+}
