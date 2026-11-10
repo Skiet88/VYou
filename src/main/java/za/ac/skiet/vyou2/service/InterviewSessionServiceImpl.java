@@ -6,7 +6,11 @@ import za.ac.skiet.vyou2.repository.InterviewSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import za.ac.skiet.vyou2.domain.InterviewStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
 import java.util.UUID;
 
 @Service
@@ -33,7 +37,13 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<InterviewSession> forUser(UUID userId) {
-        return repository.findByUserIdOrderByStartedAtDesc(userId);
+    public PageResult<InterviewSession> forUser(UUID userId, InterviewStatus status, int page, int size) {
+        // Newest first, with id as a tie-breaker so paging is stable when start times are equal.
+        PageRequest request = PageRequest.of(page, size, Sort.by(Sort.Order.desc("startedAt"), Sort.Order.desc("id")));
+        Page<InterviewSession> result = status == null
+                ? repository.findByUserId(userId, request)
+                : repository.findByUserIdAndStatus(userId, status, request);
+        return new PageResult<>(result.getContent(), result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages());
     }
 }

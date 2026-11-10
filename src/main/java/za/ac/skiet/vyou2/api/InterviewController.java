@@ -2,14 +2,19 @@ package za.ac.skiet.vyou2.api;
 
 import za.ac.skiet.vyou2.schemas.AnswerResponse;
 import za.ac.skiet.vyou2.schemas.CompletionResponse;
+import za.ac.skiet.vyou2.schemas.InterviewListItemResponse;
+import za.ac.skiet.vyou2.schemas.PageResponse;
 import za.ac.skiet.vyou2.schemas.SessionDetailsResponse;
 import za.ac.skiet.vyou2.schemas.SessionResponse;
 import za.ac.skiet.vyou2.schemas.StartInterviewRequest;
 import za.ac.skiet.vyou2.schemas.SubmitAnswerRequest;
 import za.ac.skiet.vyou2.schemas.SummaryResponse;
+import za.ac.skiet.vyou2.domain.InterviewStatus;
 import za.ac.skiet.vyou2.security.CurrentUser;
 import za.ac.skiet.vyou2.service.InterviewFacade;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,10 +22,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -46,9 +51,20 @@ public class InterviewController {
         return SchemaMapper.toResponse(session, 0);
     }
 
+    public static final int MAX_PAGE_SIZE = 50;
+
+    /**
+     * The caller's own interviews, newest first, one page at a time. Out-of-range paging values are
+     * rejected (400) rather than silently clamped, so a client bug is visible; the size cap stops a
+     * single request from pulling an entire history.
+     */
     @GetMapping("/mine")
-    public List<SessionResponse> mine(Authentication authentication) {
-        return facade.sessionsForUser(CurrentUser.id(authentication)).stream().map(SchemaMapper::toResponse).toList();
+    public PageResponse<InterviewListItemResponse> mine(
+            @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(MAX_PAGE_SIZE) int size,
+            @RequestParam(required = false) InterviewStatus status,
+            Authentication authentication) {
+        return SchemaMapper.toResponse(facade.sessionsForUser(CurrentUser.id(authentication), status, page, size));
     }
 
     @PostMapping("/{id}/answers")

@@ -119,7 +119,8 @@ class InterviewApiTest {
 
         mvc.perform(get("/api/interviews/mine").session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1));
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.totalItems").value(1));
 
         answer(session, id, "Another answer that is long enough to pass.").andExpect(status().isConflict());
         mvc.perform(post("/api/interviews/{id}/complete", id).with(csrf()).session(session)).andExpect(status().isConflict());

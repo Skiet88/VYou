@@ -8,6 +8,8 @@ import za.ac.skiet.vyou2.domain.UserAccount;
 import za.ac.skiet.vyou2.schemas.AnswerResponse;
 import za.ac.skiet.vyou2.schemas.CompletionResponse;
 import za.ac.skiet.vyou2.schemas.EvaluationResponse;
+import za.ac.skiet.vyou2.schemas.InterviewListItemResponse;
+import za.ac.skiet.vyou2.schemas.PageResponse;
 import za.ac.skiet.vyou2.schemas.SessionDetailsResponse;
 import za.ac.skiet.vyou2.schemas.SessionResponse;
 import za.ac.skiet.vyou2.schemas.SummaryResponse;
@@ -16,6 +18,7 @@ import za.ac.skiet.vyou2.schemas.UserResponse;
 import za.ac.skiet.vyou2.service.AnswerOutcome;
 import za.ac.skiet.vyou2.service.InterviewFacade.CompletionOutcome;
 import za.ac.skiet.vyou2.service.InterviewFacade.SessionOverview;
+import za.ac.skiet.vyou2.service.PageResult;
 import za.ac.skiet.vyou2.service.SessionDetails;
 import za.ac.skiet.vyou2.util.TextUtils;
 
@@ -30,8 +33,16 @@ final class SchemaMapper {
                 s.getPendingQuestion().orElse(null), s.getStartedAt(), s.getEndedAt().orElse(null));
     }
 
-    static SessionResponse toResponse(SessionOverview o) {
-        return toResponse(o.session(), o.questionsAnswered());
+    static InterviewListItemResponse toListItem(SessionOverview o) {
+        InterviewSession s = o.session();
+        return new InterviewListItemResponse(s.getId(), s.getJobRole(), s.getLevel(), s.getStatus(), s.getFeedbackMode(),
+                s.getTotalQuestions(), o.questionsAnswered(), o.averageOverall().orElse(null), s.getStartedAt(),
+                s.getEndedAt().orElse(null));
+    }
+
+    static PageResponse<InterviewListItemResponse> toResponse(PageResult<SessionOverview> page) {
+        PageResult<InterviewListItemResponse> mapped = page.map(SchemaMapper::toListItem);
+        return new PageResponse<>(mapped.items(), mapped.page(), mapped.size(), mapped.totalItems(), mapped.totalPages());
     }
 
     /** {@code revealEvaluation} is false while the session is in END_OF_INTERVIEW mode and still in progress. */

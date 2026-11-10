@@ -4,6 +4,7 @@ import za.ac.skiet.vyou2.domain.ExperienceLevel;
 import za.ac.skiet.vyou2.domain.FeedbackMode;
 import za.ac.skiet.vyou2.domain.InterviewMode;
 import za.ac.skiet.vyou2.domain.InterviewSession;
+import za.ac.skiet.vyou2.domain.InterviewStatus;
 import za.ac.skiet.vyou2.domain.InterviewSummary;
 
 import java.util.List;
@@ -37,11 +38,13 @@ public interface InterviewFacade {
 
     SessionDetails details(UUID userId, UUID sessionId);
 
-    List<SessionOverview> sessionsForUser(UUID userId);
+    /** One page of the caller's own interviews, newest first; {@code status} null means all. */
+    PageResult<SessionOverview> sessionsForUser(UUID userId, InterviewStatus status, int page, int size);
 
     record CompletionOutcome(InterviewSession session, int questionsAnswered, Optional<InterviewSummary> summary) {
     }
 
-    record SessionOverview(InterviewSession session, int questionsAnswered) {
+    /** {@code averageOverall} is empty until the interview has a summary. */
+    record SessionOverview(InterviewSession session, int questionsAnswered, Optional<Double> averageOverall) {
     }
 }

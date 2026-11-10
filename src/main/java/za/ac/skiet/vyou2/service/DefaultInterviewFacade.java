@@ -6,6 +6,7 @@ import za.ac.skiet.vyou2.domain.ExperienceLevel;
 import za.ac.skiet.vyou2.domain.FeedbackMode;
 import za.ac.skiet.vyou2.domain.InterviewMode;
 import za.ac.skiet.vyou2.domain.InterviewSession;
+import za.ac.skiet.vyou2.domain.InterviewStatus;
 import za.ac.skiet.vyou2.domain.InterviewSummary;
 import za.ac.skiet.vyou2.domain.InterviewTurn;
 import za.ac.skiet.vyou2.exception.AnswerRejectedException;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -166,11 +168,15 @@ public class DefaultInterviewFacade implements InterviewFacade {
     }
 
     @Override
-    public List<SessionOverview> sessionsForUser(UUID userId) {
-        userService.get(userId);
-        return sessionService.forUser(userId).stream()
-                .map(s -> new SessionOverview(s, turnService.countForSession(s.getId())))
-                .toList();
+    public PageResult<SessionOverview> sessionsForUser(UUID userId, InterviewStatus status, int page, int size) {
+        PageResult<InterviewSession> sessions = sessionService.forUser(userId, status, page, size);
+        // A constant number of queries per page however many rows it has: one for the page,
+        // one for every answer count, one for every average (no per-row lookups).
+        List<UUID> ids = sessions.items().stream().map(InterviewSession::getId).toList();
+        Map<UUID, Integer> answered = turnService.countsForSessions(ids);
+        Map<UUID, Double> averages = summaryService.averageOverallFor(ids);
+        return sessions.map(s -> new SessionOverview(s, answered.getOrDefault(s.getId(), 0),
+                Optional.ofNullable(averages.get(s.getId()))));
     }
 
     /**
