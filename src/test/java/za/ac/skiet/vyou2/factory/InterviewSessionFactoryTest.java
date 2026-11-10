@@ -1,9 +1,12 @@
 package za.ac.skiet.vyou2.factory;
 
 import za.ac.skiet.vyou2.domain.ExperienceLevel;
+import za.ac.skiet.vyou2.domain.FeedbackMode;
 import za.ac.skiet.vyou2.domain.InterviewMode;
 import za.ac.skiet.vyou2.domain.InterviewSession;
 import za.ac.skiet.vyou2.domain.InterviewStatus;
+import za.ac.skiet.vyou2.domain.UserRole;
+import za.ac.skiet.vyou2.domain.UserStatus;
 import za.ac.skiet.vyou2.exception.DomainValidationException;
 import org.junit.jupiter.api.Test;
 
@@ -21,27 +24,38 @@ class InterviewSessionFactoryTest {
 
     @Test
     void startTrimsRoleAndSetsInProgress() {
-        InterviewSession s = InterviewSessionFactory.start(USER, "  Java Developer ", ExperienceLevel.JUNIOR,
-                InterviewMode.TEXT, "Tell me about yourself", NOW);
+        InterviewSession s = InterviewSessionFactory.start(USER, FeedbackMode.INSTANT, 5, "  Java Developer ",
+                ExperienceLevel.JUNIOR, InterviewMode.TEXT, "Tell me about yourself", NOW);
         assertThat(s.getJobRole()).isEqualTo("Java Developer");
         assertThat(s.getStatus()).isEqualTo(InterviewStatus.IN_PROGRESS);
         assertThat(s.getPendingQuestion()).contains("Tell me about yourself");
+        assertThat(s.getTotalQuestions()).isEqualTo(5);
+        assertThat(s.isOwnedBy(USER)).isTrue();
+        assertThat(s.isOwnedBy(UUID.randomUUID())).isFalse();
     }
 
     @Test
     void rejectsBlankRole() {
-        assertThatThrownBy(() -> InterviewSessionFactory.start(USER, " ", ExperienceLevel.JUNIOR,
-                InterviewMode.TEXT, "Q", NOW)).isInstanceOf(DomainValidationException.class);
+        assertThatThrownBy(() -> InterviewSessionFactory.start(USER, FeedbackMode.INSTANT, 5, " ",
+                ExperienceLevel.JUNIOR, InterviewMode.TEXT, "Q", NOW)).isInstanceOf(DomainValidationException.class);
+    }
+
+    @Test
+    void rejectsNonPositiveQuestionCount() {
+        assertThatThrownBy(() -> InterviewSessionFactory.start(USER, FeedbackMode.INSTANT, 0, "Dev",
+                ExperienceLevel.JUNIOR, InterviewMode.TEXT, "Q", NOW)).isInstanceOf(DomainValidationException.class);
     }
 
     @Test
     void transitionsReturnNewInstancesWithSameId() {
-        InterviewSession s = InterviewSessionFactory.start(USER, "Dev", ExperienceLevel.MID, InterviewMode.VOICE, "Q1", NOW);
+        InterviewSession s = InterviewSessionFactory.start(USER, FeedbackMode.END_OF_INTERVIEW, 5, "Dev",
+                ExperienceLevel.MID, InterviewMode.VOICE, "Q1", NOW);
         InterviewSession next = InterviewSessionFactory.withNextQuestion(s, "Q2");
         InterviewSession done = InterviewSessionFactory.complete(next, NOW.plusSeconds(60));
 
         assertThat(next).isNotSameAs(s);
         assertThat(next.getId()).isEqualTo(s.getId());
+        assertThat(next.getFeedbackMode()).isEqualTo(FeedbackMode.END_OF_INTERVIEW);
         assertThat(s.getPendingQuestion()).contains("Q1");
         assertThat(done.getStatus()).isEqualTo(InterviewStatus.COMPLETED);
         assertThat(done.getPendingQuestion()).isEmpty();
@@ -51,15 +65,30 @@ class InterviewSessionFactoryTest {
 
     @Test
     void startRequiresUser() {
-        assertThatThrownBy(() -> InterviewSessionFactory.start(null, "Dev", ExperienceLevel.JUNIOR,
-                InterviewMode.TEXT, "Q", NOW)).isInstanceOf(DomainValidationException.class);
+        assertThatThrownBy(() -> InterviewSessionFactory.start(null, FeedbackMode.INSTANT, 5, "Dev",
+                ExperienceLevel.JUNIOR, InterviewMode.TEXT, "Q", NOW)).isInstanceOf(DomainValidationException.class);
     }
 
     @Test
-    void userEmailIsNormalisedAndValidated() {
-        assertThat(UserFactory.create(" Thabo@Example.COM ", "Thabo", NOW).getEmail()).isEqualTo("thabo@example.com");
-        assertThatThrownBy(() -> UserFactory.create("not-an-email", "Thabo", NOW))
+    void userRegistrationNormalisesEmailAndDefaultsRoleAndStatus() {
+        var user = UserFactory.register(" Thabo@Example.COM ", "Thabo", "bcrypt-hash", NOW);
+        assertThat(user.getEmail()).isEqualTo("thabo@example.com");
+        assertThat(user.getRole()).isEqualTo(UserRole.USER);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(user.getPasswordHash()).isEqualTo("bcrypt-hash");
+        assertThatThrownBy(() -> UserFactory.register("not-an-email", "Thabo", "hash", NOW))
                 .isInstanceOf(DomainValidationException.class);
+    }
+
+    @Test
+    void userRoleAndStatusTransitionsPreserveEverythingElse() {
+        var user = UserFactory.register("a@example.com", "A", "hash", NOW);
+        var admin = UserFactory.withRole(user, UserRole.ADMIN);
+        var suspended = UserFactory.withStatus(user, UserStatus.SUSPENDED);
+        assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(admin.getId()).isEqualTo(user.getId());
+        assertThat(suspended.getStatus()).isEqualTo(UserStatus.SUSPENDED);
+        assertThat(suspended.isActive()).isFalse();
     }
 
     @Test

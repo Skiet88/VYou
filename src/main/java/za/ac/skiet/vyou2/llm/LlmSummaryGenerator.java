@@ -4,6 +4,7 @@ import za.ac.skiet.vyou2.domain.Evaluation;
 import za.ac.skiet.vyou2.domain.InterviewSession;
 import za.ac.skiet.vyou2.domain.InterviewTurn;
 import za.ac.skiet.vyou2.exception.LlmResponseException;
+import za.ac.skiet.vyou2.security.PiiRedactor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -12,9 +13,11 @@ import java.util.List;
 public class LlmSummaryGenerator implements SummaryGenerator {
 
     private final LlmClient llmClient;
+    private final PiiRedactor piiRedactor;
 
-    public LlmSummaryGenerator(LlmClient llmClient) {
+    public LlmSummaryGenerator(LlmClient llmClient, PiiRedactor piiRedactor) {
         this.llmClient = llmClient;
+        this.piiRedactor = piiRedactor;
     }
 
     @Override
@@ -25,7 +28,7 @@ public class LlmSummaryGenerator implements SummaryGenerator {
         for (InterviewTurn t : turns) {
             Evaluation e = t.getEvaluation();
             transcript.append("\nQ").append(t.getSequenceNumber()).append(": ").append(t.getQuestion())
-                    .append("\nAnswer: ").append(t.getAnswer())
+                    .append("\nAnswer: ").append(piiRedactor.redact(t.getAnswer()))
                     .append("\nScores: clarity ").append(e.getClarityScore())
                     .append(", technical ").append(e.getTechnicalScore())
                     .append(", confidence ").append(e.getConfidenceScore())

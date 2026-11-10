@@ -1,6 +1,7 @@
 package za.ac.skiet.vyou2.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -28,7 +29,8 @@ public class InterviewTurn {
     @Column(nullable = false, length = 2000)
     private String question;
 
-    @Column(nullable = false, length = 10000)
+    @Convert(converter = za.ac.skiet.vyou2.security.AesGcmStringConverter.class)
+    @Column(nullable = false, columnDefinition = "text")
     private String answer;
 
     @Embedded

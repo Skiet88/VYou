@@ -30,6 +30,13 @@ public class InterviewSession {
     @Column(nullable = false)
     private UUID userId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private FeedbackMode feedbackMode;
+
+    @Column(nullable = false)
+    private int totalQuestions;
+
     @Column(nullable = false)
     private String jobRole;
 
@@ -58,11 +65,14 @@ public class InterviewSession {
         // for JPA only
     }
 
-    public InterviewSession(UUID id, Long version, UUID userId, String jobRole, ExperienceLevel level, InterviewMode mode,
+    public InterviewSession(UUID id, Long version, UUID userId, FeedbackMode feedbackMode, int totalQuestions,
+                            String jobRole, ExperienceLevel level, InterviewMode mode,
                             InterviewStatus status, String pendingQuestion, Instant startedAt, Instant endedAt) {
         this.id = id;
         this.version = version;
         this.userId = userId;
+        this.feedbackMode = feedbackMode;
+        this.totalQuestions = totalQuestions;
         this.jobRole = jobRole;
         this.level = level;
         this.mode = mode;
@@ -82,6 +92,18 @@ public class InterviewSession {
 
     public UUID getUserId() {
         return userId;
+    }
+
+    public FeedbackMode getFeedbackMode() {
+        return feedbackMode;
+    }
+
+    public int getTotalQuestions() {
+        return totalQuestions;
+    }
+
+    public boolean isOwnedBy(UUID candidateUserId) {
+        return userId.equals(candidateUserId);
     }
 
     public String getJobRole() {

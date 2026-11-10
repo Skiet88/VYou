@@ -4,6 +4,7 @@ import za.ac.skiet.vyou2.domain.Evaluation;
 import za.ac.skiet.vyou2.domain.InterviewSession;
 import za.ac.skiet.vyou2.exception.LlmResponseException;
 import za.ac.skiet.vyou2.factory.EvaluationFactory;
+import za.ac.skiet.vyou2.security.PiiRedactor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -12,9 +13,11 @@ import java.util.List;
 public class LlmAnswerEvaluator implements AnswerEvaluator {
 
     private final LlmClient llmClient;
+    private final PiiRedactor piiRedactor;
 
-    public LlmAnswerEvaluator(LlmClient llmClient) {
+    public LlmAnswerEvaluator(LlmClient llmClient, PiiRedactor piiRedactor) {
         this.llmClient = llmClient;
+        this.piiRedactor = piiRedactor;
     }
 
     @Override
@@ -22,7 +25,7 @@ public class LlmAnswerEvaluator implements AnswerEvaluator {
         String raw = llmClient.complete(List.of(
                 ChatMessage.system(PromptTemplates.EVALUATOR_SYSTEM),
                 ChatMessage.user(PromptTemplates.evaluationRequest(
-                        session.getJobRole(), session.getLevel().name(), question, answer))
+                        session.getJobRole(), session.getLevel().name(), question, piiRedactor.redact(answer)))
         ), true);
         return toEvaluation(JsonResponseParser.parse(raw, EvaluationResult.class));
     }

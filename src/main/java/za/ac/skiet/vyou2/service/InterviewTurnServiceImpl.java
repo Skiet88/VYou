@@ -28,4 +28,10 @@ public class InterviewTurnServiceImpl implements InterviewTurnService {
     public List<InterviewTurn> forSession(UUID sessionId) {
         return repository.findBySessionIdOrderBySequenceNumberAsc(sessionId);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int countForSession(UUID sessionId) {
+        return repository.countBySessionId(sessionId);
+    }
 }

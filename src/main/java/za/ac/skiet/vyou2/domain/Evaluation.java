@@ -1,6 +1,7 @@
 package za.ac.skiet.vyou2.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Embeddable;
 
 /** Immutable AI evaluation of a single answer. Create through {@code EvaluationFactory}. */
@@ -12,10 +13,12 @@ public class Evaluation {
     private int confidenceScore;
     private int overallScore;
 
-    @Column(length = 4000)
+    @Convert(converter = za.ac.skiet.vyou2.security.AesGcmStringConverter.class)
+    @Column(columnDefinition = "text")
     private String strengths;
 
-    @Column(length = 4000)
+    @Convert(converter = za.ac.skiet.vyou2.security.AesGcmStringConverter.class)
+    @Column(columnDefinition = "text")
     private String improvements;
 
     protected Evaluation() {

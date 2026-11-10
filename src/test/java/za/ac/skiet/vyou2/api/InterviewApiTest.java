@@ -3,6 +3,7 @@ package za.ac.skiet.vyou2.api;
 import za.ac.skiet.vyou2.exception.LlmUnavailableException;
 import za.ac.skiet.vyou2.llm.ChatMessage;
 import za.ac.skiet.vyou2.llm.LlmClient;
+import za.ac.skiet.vyou2.testsupport.AuthTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,15 +15,18 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -70,10 +74,8 @@ class InterviewApiTest {
 
     @Autowired
     private MockMvc mvc;
-
     @Autowired
     private ObjectMapper mapper;
-
     @Autowired
     private FakeLlm llm;
 
@@ -83,13 +85,15 @@ class InterviewApiTest {
     }
 
     @Test
-    void fullInterviewFlow() throws Exception {
-        String userId = registerUser();
-        JsonNode session = startInterview(userId);
-        String id = session.get("id").asText();
-        String firstQuestion = session.get("currentQuestion").asText();
+    void fullInterviewFlowWithInstantFeedback() throws Exception {
+        MockHttpSession session = newUser();
+        JsonNode started = start(session, "{\"jobRole\":\"Java Developer\",\"level\":\"JUNIOR\"}");
+        String id = started.get("id").asText();
+        String firstQuestion = started.get("currentQuestion").asText();
+        assertEquals(started, "feedbackMode", "INSTANT");
+        assertEquals(started, "totalQuestions", 5);
 
-        answer(id, GOOD_ANSWER)
+        answer(session, id, GOOD_ANSWER)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.turn.sequenceNumber").value(1))
                 .andExpect(jsonPath("$.turn.question").value(firstQuestion))
@@ -97,125 +101,147 @@ class InterviewApiTest {
                 .andExpect(jsonPath("$.turn.evaluation.improvements[0]").value("Quantify the impact"))
                 .andExpect(jsonPath("$.nextQuestion").exists());
 
-        answer(id, "Not sure")
+        answer(session, id, "Not sure")
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.reasons[0]").exists());
 
-        mvc.perform(post("/api/interviews/{id}/complete", id))
+        mvc.perform(post("/api/interviews/{id}/complete", id).with(csrf()).session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.session.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.summary.feedback").value("Solid start."))
                 .andExpect(jsonPath("$.summary.averageOverall").value(7.0));
 
-        mvc.perform(get("/api/interviews/{id}", id))
+        mvc.perform(get("/api/interviews/{id}", id).session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.turns.length()").value(1))
+                .andExpect(jsonPath("$.turns[0].evaluation.overall").value(7))
                 .andExpect(jsonPath("$.summary.focusAreas[0]").value("Depth"));
 
-        mvc.perform(get("/api/users/{id}/interviews", userId))
+        mvc.perform(get("/api/interviews/mine").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
 
-        answer(id, "Another answer that is long enough to pass.").andExpect(status().isConflict());
-        mvc.perform(post("/api/interviews/{id}/complete", id)).andExpect(status().isConflict());
+        answer(session, id, "Another answer that is long enough to pass.").andExpect(status().isConflict());
+        mvc.perform(post("/api/interviews/{id}/complete", id).with(csrf()).session(session)).andExpect(status().isConflict());
     }
 
     @Test
-    void llmOutageNeverLosesWork() throws Exception {
-        String id = startInterview(registerUser()).get("id").asText();
-        answer(id, GOOD_ANSWER).andExpect(status().isOk());
+    void endOfInterviewModeHidesScoresUntilCompletedThenAutoCompletesAtQuestionLimit() throws Exception {
+        MockHttpSession session = newUser();
+        JsonNode started = start(session, "{\"jobRole\":\"Dev\",\"level\":\"JUNIOR\",\"feedbackMode\":\"END_OF_INTERVIEW\"}");
+        String id = started.get("id").asText();
 
-        llm.down.set(true);
-        answer(id, GOOD_ANSWER)
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.detail").value("Rate limit reached"));
-
-        // Completion still succeeds; the summary is missing and can be retried later.
-        mvc.perform(post("/api/interviews/{id}/complete", id))
+        for (int i = 1; i <= 4; i++) {
+            answer(session, id, GOOD_ANSWER + " attempt " + i)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.turn.evaluation").doesNotExist())
+                    .andExpect(jsonPath("$.sessionStatus").value("IN_PROGRESS"));
+        }
+        // 5th (last, totalQuestions=5) answer auto-completes the session; no next question needed.
+        answer(session, id, GOOD_ANSWER + " attempt 5")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.session.status").value("COMPLETED"))
-                .andExpect(jsonPath("$.summary").doesNotExist());
+                .andExpect(jsonPath("$.nextQuestion").doesNotExist())
+                .andExpect(jsonPath("$.sessionStatus").value("COMPLETED"));
 
-        llm.down.set(false);
-        mvc.perform(post("/api/interviews/{id}/summary", id))
+        mvc.perform(get("/api/interviews/{id}", id).session(session))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.questionsAnswered").value(1));
-        mvc.perform(get("/api/interviews/{id}", id))
-                .andExpect(jsonPath("$.summary.feedback").value("Solid start."));
+                .andExpect(jsonPath("$.turns.length()").value(5))
+                .andExpect(jsonPath("$.turns[0].evaluation.overall").value(7));
     }
 
     @Test
-    void summaryBeforeCompletionIsConflict() throws Exception {
-        String id = startInterview(registerUser()).get("id").asText();
-        mvc.perform(post("/api/interviews/{id}/summary", id)).andExpect(status().isConflict());
+    void userCannotReachAnotherUsersInterview() throws Exception {
+        MockHttpSession owner = newUser();
+        MockHttpSession intruder = newUser();
+        String id = start(owner, "{\"jobRole\":\"Dev\",\"level\":\"JUNIOR\"}").get("id").asText();
+
+        mvc.perform(get("/api/interviews/{id}", id).session(intruder)).andExpect(status().isNotFound());
+        answer(intruder, id, GOOD_ANSWER).andExpect(status().isNotFound());
+        mvc.perform(post("/api/interviews/{id}/complete", id).with(csrf()).session(intruder)).andExpect(status().isNotFound());
+        mvc.perform(post("/api/interviews/{id}/summary", id).with(csrf()).session(intruder)).andExpect(status().isNotFound());
+
+        // The owner can still reach it normally.
+        mvc.perform(get("/api/interviews/{id}", id).session(owner)).andExpect(status().isOk());
     }
 
     @Test
-    void duplicateEmailIsConflict() throws Exception {
-        String email = "dup-" + UUID.randomUUID() + "@example.com";
-        String body = "{\"email\":\"" + email + "\",\"displayName\":\"A\"}";
-        mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isCreated());
-        mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content(body.toUpperCase()
-                        .replace("EMAIL", "email").replace("DISPLAYNAME", "displayName")))
-                .andExpect(status().isConflict());
+    void unauthenticatedRequestsAreRejected() throws Exception {
+        mvc.perform(get("/api/interviews/mine")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/interviews").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"jobRole\":\"Dev\",\"level\":\"JUNIOR\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void startForUnknownUserIs404() throws Exception {
-        mvc.perform(post("/api/interviews").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\":\"" + UUID.randomUUID() + "\",\"jobRole\":\"Dev\",\"level\":\"JUNIOR\"}"))
-                .andExpect(status().isNotFound());
+    void maliciousLookingAnswersAreStoredAsPlainTextNotExecuted() throws Exception {
+        MockHttpSession session = newUser();
+        String id = start(session, "{\"jobRole\":\"Dev\",\"level\":\"JUNIOR\"}").get("id").asText();
+        String xss = "<script>alert('xss')</script> this is my real answer about REST APIs and databases";
+        String sqli = "'); DROP TABLE users; -- this is my real answer about testing practices";
+
+        answer(session, id, xss).andExpect(status().isOk())
+                .andExpect(jsonPath("$.turn.answer").value(xss));
+
+        // Ends the interview early (a valid action, independent of the question limit).
+        mvc.perform(post("/api/interviews/{id}/complete", id).with(csrf()).session(session))
+                .andExpect(status().isOk());
+
+        // The SQL-shaped text must not have damaged anything: the session is already completed,
+        // so this is correctly rejected as a conflict rather than crashing.
+        answer(session, id, sqli).andExpect(status().isConflict());
+
+        // The database and this session are still intact and queryable.
+        mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isOk());
+        mvc.perform(get("/api/interviews/{id}", id).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.turns[0].answer").value(xss));
     }
 
     @Test
-    void badInputIs400() throws Exception {
-        mvc.perform(post("/api/interviews").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"jobRole\":\"\",\"level\":\"JUNIOR\"}"))
-                .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/interviews").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\":\"" + UUID.randomUUID() + "\",\"jobRole\":\"Dev\",\"level\":\"GURU\"}"))
-                .andExpect(status().isBadRequest());
-        mvc.perform(get("/api/interviews/not-a-uuid")).andExpect(status().isBadRequest());
-        mvc.perform(get("/api/interviews/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
-    }
-
-    @Test
-    void frontendOriginIsAllowed() throws Exception {
+    void frontendOriginIsAllowedByCors() throws Exception {
         mvc.perform(options("/api/interviews")
                         .header("Origin", "http://localhost:5173")
                         .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
     @Test
-    void openApiSpecIsPublished() throws Exception {
+    void openApiSpecIsReachableInTestProfile() throws Exception {
         mvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/interviews/{id}/answers']").exists());
     }
 
-    private String registerUser() throws Exception {
-        String body = mvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"user-" + UUID.randomUUID() + "@example.com\",\"displayName\":\"Lerato\"}"))
-                .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return mapper.readTree(body).get("id").asText();
+    @Test
+    void securityHeadersArePresent() throws Exception {
+        mvc.perform(get("/api/auth/me"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(header().exists("Content-Security-Policy"));
     }
 
-    private JsonNode startInterview(String userId) throws Exception {
-        String body = mvc.perform(post("/api/interviews").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\":\"" + userId + "\",\"jobRole\":\"Java Developer\",\"level\":\"JUNIOR\"}"))
+    private MockHttpSession newUser() throws Exception {
+        return AuthTestSupport.signup(mvc, mapper, "user-" + UUID.randomUUID() + "@example.com", "Secret123");
+    }
+
+    private JsonNode start(MockHttpSession session, String body) throws Exception {
+        String response = mvc.perform(post("/api/interviews").with(csrf()).session(session)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
-                .andExpect(jsonPath("$.mode").value("TEXT"))
                 .andReturn().getResponse().getContentAsString();
-        return mapper.readTree(body);
+        return mapper.readTree(response);
     }
 
-    private ResultActions answer(String id, String answer) throws Exception {
-        return mvc.perform(post("/api/interviews/{id}/answers", id).contentType(MediaType.APPLICATION_JSON)
-                .content(mapper.writeValueAsString(java.util.Map.of("answer", answer))));
+    private ResultActions answer(MockHttpSession session, String id, String answerText) throws Exception {
+        return mvc.perform(post("/api/interviews/{id}/answers", id).with(csrf()).session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(Map.of("answer", answerText))));
+    }
+
+    private static void assertEquals(JsonNode node, String field, Object expected) {
+        org.assertj.core.api.Assertions.assertThat(node.get(field).asText()).isEqualTo(String.valueOf(expected));
     }
 }

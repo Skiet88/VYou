@@ -1,6 +1,7 @@
 package za.ac.skiet.vyou2.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -30,13 +31,16 @@ public class InterviewSummary {
     private double averageConfidence;
     private double averageOverall;
 
-    @Column(nullable = false, length = 4000)
+    @Convert(converter = za.ac.skiet.vyou2.security.AesGcmStringConverter.class)
+    @Column(nullable = false, columnDefinition = "text")
     private String feedback;
 
-    @Column(length = 4000)
+    @Convert(converter = za.ac.skiet.vyou2.security.AesGcmStringConverter.class)
+    @Column(columnDefinition = "text")
     private String topStrengths;
 
-    @Column(length = 4000)
+    @Convert(converter = za.ac.skiet.vyou2.security.AesGcmStringConverter.class)
+    @Column(columnDefinition = "text")
     private String focusAreas;
 
     @Column(nullable = false)

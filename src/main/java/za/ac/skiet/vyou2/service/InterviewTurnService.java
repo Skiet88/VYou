@@ -10,4 +10,6 @@ public interface InterviewTurnService {
     InterviewTurn record(InterviewTurn turn);
 
     List<InterviewTurn> forSession(UUID sessionId);
+
+    int countForSession(UUID sessionId);
 }

@@ -15,6 +15,7 @@ import za.ac.skiet.vyou2.schemas.TurnResponse;
 import za.ac.skiet.vyou2.schemas.UserResponse;
 import za.ac.skiet.vyou2.service.AnswerOutcome;
 import za.ac.skiet.vyou2.service.InterviewFacade.CompletionOutcome;
+import za.ac.skiet.vyou2.service.InterviewFacade.SessionOverview;
 import za.ac.skiet.vyou2.service.SessionDetails;
 import za.ac.skiet.vyou2.util.TextUtils;
 
@@ -23,33 +24,43 @@ final class SchemaMapper {
     private SchemaMapper() {
     }
 
-    static SessionResponse toResponse(InterviewSession s) {
-        return new SessionResponse(s.getId(), s.getUserId(), s.getJobRole(), s.getLevel(), s.getMode(), s.getStatus(),
+    static SessionResponse toResponse(InterviewSession s, int questionsAnswered) {
+        return new SessionResponse(s.getId(), s.getJobRole(), s.getLevel(), s.getMode(), s.getStatus(),
+                s.getFeedbackMode(), s.getTotalQuestions(), questionsAnswered,
                 s.getPendingQuestion().orElse(null), s.getStartedAt(), s.getEndedAt().orElse(null));
     }
 
-    static TurnResponse toResponse(InterviewTurn t) {
-        return new TurnResponse(t.getSequenceNumber(), t.getQuestion(), t.getAnswer(),
-                toResponse(t.getEvaluation()), t.getAnsweredAt());
+    static SessionResponse toResponse(SessionOverview o) {
+        return toResponse(o.session(), o.questionsAnswered());
     }
 
-    static EvaluationResponse toResponse(Evaluation e) {
+    /** {@code revealEvaluation} is false while the session is in END_OF_INTERVIEW mode and still in progress. */
+    private static TurnResponse toResponse(InterviewTurn t, boolean revealEvaluation) {
+        return new TurnResponse(t.getSequenceNumber(), t.getQuestion(), t.getAnswer(),
+                revealEvaluation ? toResponse(t.getEvaluation()) : null, t.getAnsweredAt());
+    }
+
+    private static EvaluationResponse toResponse(Evaluation e) {
         return new EvaluationResponse(e.getClarityScore(), e.getTechnicalScore(), e.getConfidenceScore(),
                 e.getOverallScore(), TextUtils.splitLines(e.getStrengths()), TextUtils.splitLines(e.getImprovements()));
     }
 
     static AnswerResponse toResponse(AnswerOutcome o) {
-        return new AnswerResponse(toResponse(o.turn()), o.session().getPendingQuestion().orElse(null));
+        boolean reveal = reveals(o.session());
+        return new AnswerResponse(toResponse(o.turn(), reveal), o.session().getPendingQuestion().orElse(null),
+                o.session().getStatus());
     }
 
     static SessionDetailsResponse toResponse(SessionDetails d) {
-        return new SessionDetailsResponse(toResponse(d.session()),
-                d.turns().stream().map(SchemaMapper::toResponse).toList(),
+        boolean reveal = reveals(d.session());
+        return new SessionDetailsResponse(toResponse(d.session(), d.turns().size()),
+                d.turns().stream().map(t -> toResponse(t, reveal)).toList(),
                 d.summary().map(SchemaMapper::toResponse).orElse(null));
     }
 
     static CompletionResponse toResponse(CompletionOutcome o) {
-        return new CompletionResponse(toResponse(o.session()), o.summary().map(SchemaMapper::toResponse).orElse(null));
+        return new CompletionResponse(toResponse(o.session(), o.questionsAnswered()),
+                o.summary().map(SchemaMapper::toResponse).orElse(null));
     }
 
     static SummaryResponse toResponse(InterviewSummary s) {
@@ -59,6 +70,11 @@ final class SchemaMapper {
     }
 
     static UserResponse toResponse(UserAccount u) {
-        return new UserResponse(u.getId(), u.getEmail(), u.getDisplayName(), u.getCreatedAt());
+        return new UserResponse(u.getId(), u.getEmail(), u.getDisplayName(), u.getRole(), u.getCreatedAt());
+    }
+
+    /** Scores are revealed per-turn once feedback is INSTANT, or once the interview is no longer in progress. */
+    private static boolean reveals(InterviewSession session) {
+        return session.getFeedbackMode() == za.ac.skiet.vyou2.domain.FeedbackMode.INSTANT || !session.isInProgress();
     }
 }

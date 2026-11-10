@@ -1,7 +1,9 @@
 package za.ac.skiet.vyou2.service;
 
+import za.ac.skiet.vyou2.config.InterviewProperties;
 import za.ac.skiet.vyou2.domain.Evaluation;
 import za.ac.skiet.vyou2.domain.ExperienceLevel;
+import za.ac.skiet.vyou2.domain.FeedbackMode;
 import za.ac.skiet.vyou2.domain.InterviewMode;
 import za.ac.skiet.vyou2.domain.InterviewSession;
 import za.ac.skiet.vyou2.domain.InterviewSummary;
@@ -11,6 +13,7 @@ import za.ac.skiet.vyou2.exception.ConflictException;
 import za.ac.skiet.vyou2.exception.DomainValidationException;
 import za.ac.skiet.vyou2.exception.LlmResponseException;
 import za.ac.skiet.vyou2.exception.LlmUnavailableException;
+import za.ac.skiet.vyou2.exception.ResourceNotFoundException;
 import za.ac.skiet.vyou2.factory.InterviewSessionFactory;
 import za.ac.skiet.vyou2.factory.InterviewSummaryFactory;
 import za.ac.skiet.vyou2.factory.InterviewTurnFactory;
@@ -48,13 +51,14 @@ public class DefaultInterviewFacade implements InterviewFacade {
     private final AnswerEvaluator evaluator;
     private final QuestionGenerator questionGenerator;
     private final SummaryGenerator summaryGenerator;
+    private final InterviewProperties interviewProperties;
     private final Clock clock;
 
     public DefaultInterviewFacade(UserService userService, InterviewSessionService sessionService,
                                   InterviewTurnService turnService, InterviewSummaryService summaryService,
                                   AnswerScreener screener, AnswerEvaluator evaluator,
                                   QuestionGenerator questionGenerator, SummaryGenerator summaryGenerator,
-                                  Clock clock) {
+                                  InterviewProperties interviewProperties, Clock clock) {
         this.userService = userService;
         this.sessionService = sessionService;
         this.turnService = turnService;
@@ -63,22 +67,26 @@ public class DefaultInterviewFacade implements InterviewFacade {
         this.evaluator = evaluator;
         this.questionGenerator = questionGenerator;
         this.summaryGenerator = summaryGenerator;
+        this.interviewProperties = interviewProperties;
         this.clock = clock;
     }
 
     @Override
-    public InterviewSession start(UUID userId, String jobRole, ExperienceLevel level, InterviewMode mode) {
+    public InterviewSession start(UUID userId, String jobRole, ExperienceLevel level, InterviewMode mode,
+                                  FeedbackMode feedbackMode) {
         userService.get(userId);
+        int totalQuestions = interviewProperties.questionCount();
         // Validate before spending an LLM request on a bad input.
-        InterviewSessionFactory.start(userId, jobRole, level, mode, "placeholder", clock.instant());
+        InterviewSessionFactory.start(userId, feedbackMode, totalQuestions, jobRole, level, mode, "placeholder",
+                clock.instant());
         String firstQuestion = questionGenerator.firstQuestion(jobRole.strip(), level.name());
-        return sessionService.save(
-                InterviewSessionFactory.start(userId, jobRole, level, mode, firstQuestion, clock.instant()));
+        return sessionService.save(InterviewSessionFactory.start(userId, feedbackMode, totalQuestions, jobRole,
+                level, mode, firstQuestion, clock.instant()));
     }
 
     @Override
-    public AnswerOutcome submitAnswer(UUID sessionId, String answer) {
-        InterviewSession session = sessionService.get(sessionId);
+    public AnswerOutcome submitAnswer(UUID userId, UUID sessionId, String answer) {
+        InterviewSession session = ownedSession(userId, sessionId);
         if (!session.isInProgress()) {
             throw new ConflictException("Interview session " + sessionId + " is already completed");
         }
@@ -94,6 +102,12 @@ public class DefaultInterviewFacade implements InterviewFacade {
         Evaluation evaluation = evaluator.evaluate(session, question, answer);
         InterviewTurn turn = turnService.record(InterviewTurnFactory.create(
                 sessionId, previous.size() + 1, question, answer, evaluation, clock.instant()));
+
+        if (turn.getSequenceNumber() >= session.getTotalQuestions()) {
+            // Reached the question limit: no next question to generate, complete automatically.
+            InterviewSession completed = sessionService.save(InterviewSessionFactory.complete(session, clock.instant()));
+            return new AnswerOutcome(turn, completed);
+        }
 
         List<InterviewTurn> history = new ArrayList<>(previous);
         history.add(turn);
@@ -111,12 +125,13 @@ public class DefaultInterviewFacade implements InterviewFacade {
     }
 
     @Override
-    public CompletionOutcome complete(UUID sessionId) {
-        InterviewSession session = sessionService.get(sessionId);
+    public CompletionOutcome complete(UUID userId, UUID sessionId) {
+        InterviewSession session = ownedSession(userId, sessionId);
         if (!session.isInProgress()) {
             throw new ConflictException("Interview session " + sessionId + " is already completed");
         }
         InterviewSession completed = sessionService.save(InterviewSessionFactory.complete(session, clock.instant()));
+        int questionsAnswered = turnService.countForSession(sessionId);
         Optional<InterviewSummary> summary;
         try {
             summary = Optional.ofNullable(generateSummaryIfPossible(completed));
@@ -124,16 +139,16 @@ public class DefaultInterviewFacade implements InterviewFacade {
             log.warn("Summary generation failed for session {}: {}", sessionId, ex.getMessage());
             summary = Optional.empty();
         }
-        return new CompletionOutcome(completed, summary);
+        return new CompletionOutcome(completed, questionsAnswered, summary);
     }
 
     @Override
-    public InterviewSummary summarise(UUID sessionId) {
+    public InterviewSummary summarise(UUID userId, UUID sessionId) {
+        InterviewSession session = ownedSession(userId, sessionId);
         Optional<InterviewSummary> existing = summaryService.forSession(sessionId);
         if (existing.isPresent()) {
             return existing.get();
         }
-        InterviewSession session = sessionService.get(sessionId);
         if (session.isInProgress()) {
             throw new ConflictException("Complete the interview before requesting its summary");
         }
@@ -145,15 +160,30 @@ public class DefaultInterviewFacade implements InterviewFacade {
     }
 
     @Override
-    public SessionDetails details(UUID sessionId) {
-        return new SessionDetails(sessionService.get(sessionId), turnService.forSession(sessionId),
-                summaryService.forSession(sessionId));
+    public SessionDetails details(UUID userId, UUID sessionId) {
+        InterviewSession session = ownedSession(userId, sessionId);
+        return new SessionDetails(session, turnService.forSession(sessionId), summaryService.forSession(sessionId));
     }
 
     @Override
-    public List<InterviewSession> sessionsForUser(UUID userId) {
+    public List<SessionOverview> sessionsForUser(UUID userId) {
         userService.get(userId);
-        return sessionService.forUser(userId);
+        return sessionService.forUser(userId).stream()
+                .map(s -> new SessionOverview(s, turnService.countForSession(s.getId())))
+                .toList();
+    }
+
+    /**
+     * Loads a session and enforces that it belongs to {@code userId}. A session owned by someone
+     * else is reported identically to a missing one, so a caller cannot distinguish "not yours"
+     * from "does not exist" (anti-IDOR).
+     */
+    private InterviewSession ownedSession(UUID userId, UUID sessionId) {
+        InterviewSession session = sessionService.get(sessionId);
+        if (!session.isOwnedBy(userId)) {
+            throw new ResourceNotFoundException("Interview session " + sessionId + " not found");
+        }
+        return session;
     }
 
     /** @return the saved summary, or null when no questions were answered */
