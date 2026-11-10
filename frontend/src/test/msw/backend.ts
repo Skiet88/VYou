@@ -14,6 +14,7 @@ interface StoredUser {
   displayName: string;
   password: string;
   role: 'USER' | 'ADMIN';
+  status: 'ACTIVE' | 'SUSPENDED';
   createdAt: string;
 }
 
@@ -111,7 +112,8 @@ export const backend = {
       displayName,
       password,
       role,
-      createdAt: new Date().toISOString(),
+      status: 'ACTIVE',
+      createdAt: new Date(Date.UTC(2026, 0, 1, 8, 0, state.users.size)).toISOString(),
     };
     state.users.set(user.email, user);
     return user;
@@ -145,7 +147,7 @@ function csrfRejected(request: Request) {
 
 export const handlers = [
   http.get('*/api/auth/me', () => {
-    const user = [...state.users.values()].find((u) => u.id === state.sessionUserId);
+    const user = [...state.users.values()].find((u) => u.id === state.sessionUserId && u.status === 'ACTIVE');
     return user ? HttpResponse.json(publicUser(user)) : problem(401, 'Unauthorized', 'Authentication is required');
   }),
 
@@ -155,7 +157,7 @@ export const handlers = [
     const body = (await request.json()) as { email: string; password: string };
     if (body.email === RATE_LIMITED_EMAIL) return problem(429, 'Too many requests', 'Too many requests. Please wait and try again.');
     const user = state.users.get(body.email.toLowerCase());
-    if (!user || user.password !== body.password) return problem(401, 'Unauthorized', 'Invalid email or password');
+    if (!user || user.password !== body.password || user.status !== 'ACTIVE') return problem(401, 'Unauthorized', 'Invalid email or password');
     state.sessionUserId = user.id;
     return HttpResponse.json(publicUser(user));
   }),
@@ -234,7 +236,11 @@ function makeSummary(i: StoredInterview) {
   };
 }
 
-const requireSession = () => (state.sessionUserId ? null : problem(401, 'Unauthorized', 'Authentication is required'));
+/** Like the backend's ActiveAccountFilter: a suspended account's session no longer works. */
+const requireSession = () => {
+  const active = [...state.users.values()].some((u) => u.id === state.sessionUserId && u.status === 'ACTIVE');
+  return active ? null : problem(401, 'Unauthorized', 'Authentication is required');
+};
 
 handlers.push(
   http.post('*/api/interviews', async ({ request }) => {
@@ -348,3 +354,79 @@ handlers.push(
     return HttpResponse.json(i.summary);
   }),
 );
+
+// ---- Admin: same rules as the backend (admin role required; can't suspend yourself or an admin). ----
+
+const currentUser = () => [...state.users.values()].find((u) => u.id === state.sessionUserId && u.status === 'ACTIVE');
+
+function adminUserJson(u: StoredUser) {
+  const theirs = [...state.interviews.values()].filter((i) => i.ownerId === u.id);
+  const averages = theirs.map((i) => i.summary?.averageOverall as number | undefined).filter((v): v is number => v !== undefined);
+  return {
+    id: u.id,
+    email: u.email,
+    displayName: u.displayName,
+    role: u.role,
+    status: u.status,
+    createdAt: u.createdAt,
+    interviewsTotal: theirs.length,
+    interviewsCompleted: theirs.filter((i) => i.status === 'COMPLETED').length,
+    averageOverall: averages.length ? Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 10) / 10 : null,
+  };
+}
+
+function requireAdmin() {
+  const me = currentUser();
+  if (!me) return problem(401, 'Unauthorized', 'Authentication is required');
+  if (me.role !== 'ADMIN') return problem(403, 'Forbidden', 'You do not have permission to do that');
+  return null;
+}
+
+handlers.push(
+  http.get('*/api/admin/users', ({ request }) => {
+    const rejected = requireAdmin();
+    if (rejected) return rejected;
+    const url = new URL(request.url);
+    const search = (url.searchParams.get('search') ?? '').toLowerCase();
+    const status = url.searchParams.get('status');
+    const page = Number(url.searchParams.get('page') ?? '0');
+    const size = Number(url.searchParams.get('size') ?? '20');
+    const matching = [...state.users.values()]
+      .filter((u) => (!status || u.status === status) && (!search || u.email.includes(search) || u.displayName.toLowerCase().includes(search)))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return HttpResponse.json({
+      items: matching.slice(page * size, page * size + size).map(adminUserJson),
+      page,
+      size,
+      totalItems: matching.length,
+      totalPages: Math.ceil(matching.length / size),
+    });
+  }),
+
+  http.post('*/api/admin/users/:id/:action', ({ request, params }) => {
+    const rejected = csrfRejected(request) ?? requireAdmin();
+    if (rejected) return rejected;
+    const target = [...state.users.values()].find((u) => u.id === params.id);
+    if (!target) return problem(404, 'Not found', 'User not found');
+    if (params.action === 'suspend') {
+      if (target.id === state.sessionUserId) return problem(409, 'Conflict', "You can't suspend your own account");
+      if (target.role === 'ADMIN') return problem(409, 'Conflict', "Admin accounts can't be suspended here");
+      target.status = 'SUSPENDED';
+    } else if (params.action === 'reinstate') {
+      target.status = 'ACTIVE';
+    } else {
+      return problem(404, 'Not found', 'Not found');
+    }
+    return HttpResponse.json(adminUserJson(target));
+  }),
+);
+
+export const adminBackend = {
+  status(email: string) {
+    return state.users.get(email.toLowerCase())?.status;
+  },
+  suspend(email: string) {
+    const u = state.users.get(email.toLowerCase());
+    if (u) u.status = 'SUSPENDED';
+  },
+};

@@ -69,3 +69,18 @@ describe('Focus after signing in', () => {
     await waitFor(() => expect(heading).toHaveFocus());
   });
 });
+
+describe('A session that ends mid-use', () => {
+  it('returns the user to sign in on the next request, and back to where they were going afterwards', async () => {
+    const { adminBackend } = await import('../../test/msw/backend');
+    backend.addUser('thabo@example.com', 'Secret123', 'Thabo');
+    backend.signIn('thabo@example.com');
+    const { user } = renderApp(['/']);
+    await screen.findByRole('heading', { name: 'Welcome, Thabo' });
+
+    adminBackend.suspend('thabo@example.com');
+    await user.click(screen.getByRole('link', { name: 'Interviews' }));
+    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.queryByText(/could not be loaded/i)).toBeNull();
+  });
+});

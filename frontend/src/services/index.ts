@@ -1,5 +1,6 @@
 import { appConfig } from '../config/env';
 import { readCookie } from '../util/cookies';
+import { createAdminService, type AdminService } from './adminService';
 import { createAuthService, type AuthService } from './authService';
 import { createHttpClient } from './httpClient';
 import { createInterviewService, type InterviewService } from './interviewService';
@@ -7,6 +8,7 @@ import { createInterviewService, type InterviewService } from './interviewServic
 export interface Services {
   auth: AuthService;
   interviews: InterviewService;
+  admin: AdminService;
 }
 
 /** Production wiring. Tests build their own Services (or use these against a mocked network). */
@@ -18,9 +20,10 @@ export function createServices(): Services {
     csrfPrimePath: '/auth/me',
     readCookie: (name) => readCookie(name),
   });
-  return { auth: createAuthService(http), interviews: createInterviewService(http) };
+  return { auth: createAuthService(http), interviews: createInterviewService(http), admin: createAdminService(http) };
 }
 
 export type { AuthService } from './authService';
 export type { InterviewService } from './interviewService';
+export type { AdminService } from './adminService';
 export { ApiError, isApiError } from './apiError';

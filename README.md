@@ -90,8 +90,11 @@ admin-only Users, an account menu with theme and sign out, breadcrumbs, skip lin
 new page's heading); the three-step new-interview wizard (`/interviews/new`, step in the URL so Back
 works); and the interview itself (`/interviews/:id`): question, answer, practice-mode feedback or a
 saved confirmation, end-early confirmation, and a summary-first completion view with a collapsed
-question-by-question breakdown; and the Interviews list (`/interviews`: All / In progress / Completed
-filter, 10 per page, filter and page in the URL). Typed answers are
+question-by-question breakdown; the Interviews list (`/interviews`: All / In progress / Completed
+filter, 10 per page, filter and page in the URL); and, for admins only, Users (`/users`: search,
+Active / Suspended filter, suspend with confirmation, reinstate). A 401 from any request is treated
+as "signed out" everywhere: the user is sent to sign in (and back afterwards) and cached data from
+the old session is dropped. Typed answers are
 kept in memory only and survive every failure (rejection, AI unavailable, rate limit).
 
 Tests sit next to the code they cover and run against an MSW fake of the backend contract (same
