@@ -21,10 +21,12 @@ public final class InterviewSessionFactory {
     private InterviewSessionFactory() {
     }
 
-    public static InterviewSession start(String jobRole, ExperienceLevel level, InterviewMode mode,
+    public static InterviewSession start(UUID userId, String jobRole, ExperienceLevel level, InterviewMode mode,
                                          String firstQuestion, Instant now) {
         return new InterviewSession(
                 UUID.randomUUID(),
+                null,
+                requireNonNull(userId, "userId"),
                 requireText(jobRole, "jobRole", MAX_ROLE_LENGTH),
                 requireNonNull(level, "level"),
                 requireNonNull(mode, "mode"),
@@ -36,14 +38,14 @@ public final class InterviewSessionFactory {
 
     public static InterviewSession withNextQuestion(InterviewSession session, String nextQuestion) {
         requireInProgress(session);
-        return new InterviewSession(session.getId(), session.getJobRole(), session.getLevel(), session.getMode(),
+        return new InterviewSession(session.getId(), session.getVersion(), session.getUserId(), session.getJobRole(), session.getLevel(), session.getMode(),
                 session.getStatus(), requireText(nextQuestion, "nextQuestion", MAX_QUESTION_LENGTH),
                 session.getStartedAt(), null);
     }
 
     public static InterviewSession complete(InterviewSession session, Instant now) {
         requireInProgress(session);
-        return new InterviewSession(session.getId(), session.getJobRole(), session.getLevel(), session.getMode(),
+        return new InterviewSession(session.getId(), session.getVersion(), session.getUserId(), session.getJobRole(), session.getLevel(), session.getMode(),
                 InterviewStatus.COMPLETED, null, session.getStartedAt(), requireNonNull(now, "now"));
     }
 

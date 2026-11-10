@@ -1,10 +1,12 @@
 package za.ac.skiet.vyou2.api;
 
 import za.ac.skiet.vyou2.schemas.AnswerResponse;
+import za.ac.skiet.vyou2.schemas.CompletionResponse;
 import za.ac.skiet.vyou2.schemas.SessionDetailsResponse;
 import za.ac.skiet.vyou2.schemas.SessionResponse;
 import za.ac.skiet.vyou2.schemas.StartInterviewRequest;
 import za.ac.skiet.vyou2.schemas.SubmitAnswerRequest;
+import za.ac.skiet.vyou2.schemas.SummaryResponse;
 import za.ac.skiet.vyou2.service.InterviewFacade;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -31,7 +33,7 @@ public class InterviewController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public SessionResponse start(@Valid @RequestBody StartInterviewRequest request) {
-        return SchemaMapper.toResponse(facade.start(request.jobRole(), request.level(), request.modeOrDefault()));
+        return SchemaMapper.toResponse(facade.start(request.userId(), request.jobRole(), request.level(), request.modeOrDefault()));
     }
 
     @PostMapping("/{id}/answers")
@@ -40,8 +42,14 @@ public class InterviewController {
     }
 
     @PostMapping("/{id}/complete")
-    public SessionResponse complete(@PathVariable UUID id) {
+    public CompletionResponse complete(@PathVariable UUID id) {
         return SchemaMapper.toResponse(facade.complete(id));
+    }
+
+    /** Returns the summary, generating it first if completion couldn't (e.g. the AI was rate limited). */
+    @PostMapping("/{id}/summary")
+    public SummaryResponse summary(@PathVariable UUID id) {
+        return SchemaMapper.toResponse(facade.summarise(id));
     }
 
     @GetMapping("/{id}")

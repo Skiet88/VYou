@@ -27,6 +27,15 @@ final class PromptTemplates {
             repeat earlier questions. Reply with the question text only.
             """;
 
+    static final String SUMMARY_SYSTEM = """
+            You are an interview coach writing the debrief for a completed mock job interview.
+            You receive every question, the candidate's answer, and the per-answer scores (0-10).
+            Write 3-5 sentences of honest, encouraging overall feedback addressed to the candidate as "you".
+            List up to 3 recurring strengths and up to 3 focus areas, each concrete enough to practise.
+            Respond with ONLY a JSON object in exactly this shape:
+            {"feedback": string, "topStrengths": [string], "focusAreas": [string]}
+            """;
+
     static String evaluationRequest(String role, String level, String question, String answer) {
         return "Role: " + role + "\nLevel: " + level + "\n\nQuestion:\n" + question
                 + "\n\nCandidate answer:\n" + answer;

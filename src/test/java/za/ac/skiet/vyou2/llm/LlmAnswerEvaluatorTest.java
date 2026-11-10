@@ -9,13 +9,14 @@ import za.ac.skiet.vyou2.factory.InterviewSessionFactory;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class LlmAnswerEvaluatorTest {
 
-    private final InterviewSession session = InterviewSessionFactory.start(
+    private final InterviewSession session = InterviewSessionFactory.start(UUID.randomUUID(),
             "Java Developer", ExperienceLevel.JUNIOR, InterviewMode.TEXT, "Q", Instant.now());
 
     private static AnswerEvaluator evaluatorReturning(String raw) {

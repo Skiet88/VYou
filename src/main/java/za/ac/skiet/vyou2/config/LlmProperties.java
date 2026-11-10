@@ -9,13 +9,16 @@ import java.time.Duration;
  * provider works by changing base-url/model, e.g. Groq: https://api.groq.com/openai/v1.
  */
 @ConfigurationProperties(prefix = "vyou.llm")
-public record LlmProperties(String baseUrl, String model, String apiKey, Double temperature, Duration timeout) {
+public record LlmProperties(String baseUrl, String model, String apiKey, Double temperature, Duration timeout,
+                            Integer maxAttempts, Duration retryBackoff) {
 
     public LlmProperties {
         baseUrl = isBlank(baseUrl) ? "https://models.github.ai/inference" : baseUrl.replaceAll("/+$", "");
         model = isBlank(model) ? "openai/gpt-4o" : model;
         temperature = temperature == null ? 0.2 : temperature;
         timeout = timeout == null ? Duration.ofSeconds(30) : timeout;
+        maxAttempts = maxAttempts == null ? 2 : maxAttempts;
+        retryBackoff = retryBackoff == null ? Duration.ofMillis(500) : retryBackoff;
     }
 
     public boolean isConfigured() {

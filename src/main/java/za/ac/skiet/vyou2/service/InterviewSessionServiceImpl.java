@@ -6,6 +6,7 @@ import za.ac.skiet.vyou2.repository.InterviewSessionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -28,5 +29,11 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     public InterviewSession get(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Interview session " + id + " not found"));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InterviewSession> forUser(UUID userId) {
+        return repository.findByUserIdOrderByStartedAtDesc(userId);
     }
 }

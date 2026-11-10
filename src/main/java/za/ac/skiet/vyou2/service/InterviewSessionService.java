@@ -2,6 +2,7 @@ package za.ac.skiet.vyou2.service;
 
 import za.ac.skiet.vyou2.domain.InterviewSession;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface InterviewSessionService {
@@ -10,4 +11,6 @@ public interface InterviewSessionService {
 
     /** @throws za.ac.skiet.vyou2.exception.ResourceNotFoundException if no session has this id */
     InterviewSession get(UUID id);
+
+    List<InterviewSession> forUser(UUID userId);
 }

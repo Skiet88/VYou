@@ -6,6 +6,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -21,6 +22,13 @@ public class InterviewSession {
 
     @Id
     private UUID id;
+
+    /** Optimistic lock: a concurrent update of the same session fails instead of overwriting. */
+    @Version
+    private Long version;
+
+    @Column(nullable = false)
+    private UUID userId;
 
     @Column(nullable = false)
     private String jobRole;
@@ -50,9 +58,11 @@ public class InterviewSession {
         // for JPA only
     }
 
-    public InterviewSession(UUID id, String jobRole, ExperienceLevel level, InterviewMode mode,
+    public InterviewSession(UUID id, Long version, UUID userId, String jobRole, ExperienceLevel level, InterviewMode mode,
                             InterviewStatus status, String pendingQuestion, Instant startedAt, Instant endedAt) {
         this.id = id;
+        this.version = version;
+        this.userId = userId;
         this.jobRole = jobRole;
         this.level = level;
         this.mode = mode;
@@ -64,6 +74,14 @@ public class InterviewSession {
 
     public UUID getId() {
         return id;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public UUID getUserId() {
+        return userId;
     }
 
     public String getJobRole() {

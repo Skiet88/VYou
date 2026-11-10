@@ -13,7 +13,7 @@ import java.util.UUID;
 /** Immutable question/answer/evaluation record. Turns are append-only. */
 @Entity
 @Table(name = "interview_turns",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"sessionId", "sequenceNumber"}))
+        uniqueConstraints = @UniqueConstraint(name = "uk_turns_session_sequence", columnNames = {"session_id", "sequence_number"}))
 public class InterviewTurn {
 
     @Id
