@@ -7,7 +7,9 @@ import { LoginForm } from '../auth/LoginForm';
 export function LoginPage() {
   useDocumentTitle('Sign in');
   const location = useLocation();
-  const accountDeleted = (location.state as { accountDeleted?: boolean } | null)?.accountDeleted;
+  const state = location.state as { accountDeleted?: boolean; passwordReset?: boolean } | null;
+  const accountDeleted = state?.accountDeleted;
+  const passwordReset = state?.passwordReset;
   return (
     <AuthLayout
       title="Sign in"
@@ -23,6 +25,7 @@ export function LoginPage() {
           Your account will be deleted in 30 days. Sign in again before then to cancel it.
         </DismissibleBanner>
       )}
+      {passwordReset && <DismissibleBanner>Your password has been reset. Sign in with your new password.</DismissibleBanner>}
       <LoginForm />
     </AuthLayout>
   );

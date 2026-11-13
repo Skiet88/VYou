@@ -19,6 +19,7 @@ interface StoredUser {
   createdAt: string;
   emailVerified: boolean;
   verificationToken?: string;
+  passwordResetToken?: string;
 }
 
 interface StoredTurn {
@@ -144,6 +145,13 @@ export const backend = {
   verificationToken(email: string) {
     return state.users.get(email.toLowerCase())?.verificationToken ?? null;
   },
+  /** The current password-reset token for a user, as a real email link would carry it. */
+  passwordResetToken(email: string) {
+    return state.users.get(email.toLowerCase())?.passwordResetToken ?? null;
+  },
+  passwordOf(email: string) {
+    return state.users.get(email.toLowerCase())?.password ?? null;
+  },
   /** Creates a user and gives them a session in one step. */
   signedInAs(email = 'thabo@example.com', displayName = 'Thabo', role: 'USER' | 'ADMIN' = 'USER') {
     const user = backend.addUser(email, 'Secret123', displayName, role);
@@ -254,6 +262,27 @@ export const handlers = [
     if (rejected) return rejected;
     const me = currentUser()!;
     if (!me.emailVerified) me.verificationToken = crypto.randomUUID();
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  http.post('*/api/password-reset/request', async ({ request }) => {
+    const rejected = csrfRejected(request);
+    if (rejected) return rejected;
+    const { email } = (await request.json()) as { email: string };
+    // Same response either way, or none at all: never reveals whether an email is registered.
+    const user = state.users.get(email.toLowerCase());
+    if (user) user.passwordResetToken = crypto.randomUUID();
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  http.post('*/api/password-reset/reset', async ({ request }) => {
+    const rejected = csrfRejected(request);
+    if (rejected) return rejected;
+    const { token, newPassword } = (await request.json()) as { token: string; newPassword: string };
+    const user = [...state.users.values()].find((u) => u.passwordResetToken === token);
+    if (!user) return problem(400, 'Invalid request', 'That password reset link is invalid or has expired.');
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
     return new HttpResponse(null, { status: 200 });
   }),
 ];

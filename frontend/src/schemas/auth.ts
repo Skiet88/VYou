@@ -16,6 +16,11 @@ export const LoginInputSchema = z.object({
   password: z.string().min(1, 'Enter your password'),
 });
 
+const newPassword = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(72, 'Password must be 72 characters or fewer');
+
 export const SignupInputSchema = z.object({
   displayName: z
     .string()
@@ -23,11 +28,18 @@ export const SignupInputSchema = z.object({
     .min(1, 'Enter your name')
     .max(80, 'Name must be 80 characters or fewer'),
   email,
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(72, 'Password must be 72 characters or fewer'),
+  password: newPassword,
+});
+
+export const ForgotPasswordInputSchema = z.object({
+  email,
+});
+
+export const ResetPasswordInputSchema = z.object({
+  newPassword,
 });
 
 export type LoginInput = z.infer<typeof LoginInputSchema>;
 export type SignupInput = z.infer<typeof SignupInputSchema>;
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordInputSchema>;
+export type ResetPasswordInput = z.infer<typeof ResetPasswordInputSchema>;

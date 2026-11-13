@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LoginInputSchema } from '../../schemas/auth';
 import { authErrorMessage } from '../../hooks/authErrorMessage';
 import { useLogin } from '../../hooks/useAuth';
@@ -51,6 +51,9 @@ export function LoginForm() {
         onValueChange={(value) => setValue('password', value)}
         error={errors.password}
       />
+      <p className={styles.forgotPassword}>
+        <Link to="/forgot-password">Forgot your password?</Link>
+      </p>
       <Button type="submit" variant="primary" className={styles.submit} busy={login.isPending} busyLabel="Signing in…">
         Sign in
       </Button>
