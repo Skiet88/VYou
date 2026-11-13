@@ -45,6 +45,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Unauthorized", "Invalid email or password");
     }
 
+    @ExceptionHandler(IncorrectPasswordException.class)
+    public ProblemDetail handleIncorrectPassword(IncorrectPasswordException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Unauthorized", "Incorrect password");
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
         return problem(HttpStatus.FORBIDDEN, "Forbidden", "You do not have permission to do that");

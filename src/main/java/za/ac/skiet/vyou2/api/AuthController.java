@@ -1,10 +1,12 @@
 package za.ac.skiet.vyou2.api;
 
 import za.ac.skiet.vyou2.schemas.LoginRequest;
+import za.ac.skiet.vyou2.schemas.LoginResponse;
 import za.ac.skiet.vyou2.schemas.SignupRequest;
 import za.ac.skiet.vyou2.schemas.UserResponse;
 import za.ac.skiet.vyou2.security.AppUserDetails;
 import za.ac.skiet.vyou2.security.CurrentUser;
+import za.ac.skiet.vyou2.service.AccountDeletionService;
 import za.ac.skiet.vyou2.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,12 +31,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final UserService userService;
+    private final AccountDeletionService accountDeletionService;
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
 
-    public AuthController(UserService userService, AuthenticationManager authenticationManager,
+    public AuthController(UserService userService, AccountDeletionService accountDeletionService,
+                          AuthenticationManager authenticationManager,
                           SecurityContextRepository securityContextRepository) {
         this.userService = userService;
+        this.accountDeletionService = accountDeletionService;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
     }
@@ -44,16 +49,17 @@ public class AuthController {
     public UserResponse signup(@Valid @RequestBody SignupRequest request, HttpServletRequest httpRequest,
                                HttpServletResponse httpResponse) {
         userService.register(request.email(), request.displayName(), request.password());
-        // Log the new user in immediately rather than making them submit the same credentials twice.
+        // Log the new user in immediately rather than making them submit the same credentials
+        // twice. A brand-new account is never pending deletion, so the return value is ignored.
         authenticate(request.email(), request.password(), httpRequest, httpResponse);
         return SchemaMapper.toResponse(currentUser());
     }
 
     @PostMapping("/login")
-    public UserResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest,
-                              HttpServletResponse httpResponse) {
-        authenticate(request.email(), request.password(), httpRequest, httpResponse);
-        return SchemaMapper.toResponse(currentUser());
+    public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest,
+                               HttpServletResponse httpResponse) {
+        boolean reactivated = authenticate(request.email(), request.password(), httpRequest, httpResponse);
+        return new LoginResponse(SchemaMapper.toResponse(currentUser()), reactivated);
     }
 
     @PostMapping("/logout")
@@ -70,8 +76,11 @@ public class AuthController {
         return SchemaMapper.toResponse(userService.get(CurrentUser.id(authentication)));
     }
 
-    /** Same generic failure for "no such email" and "wrong password", so login can't be used to probe emails. */
-    private void authenticate(String email, String password, HttpServletRequest request, HttpServletResponse response) {
+    /**
+     * Same generic failure for "no such email" and "wrong password", so login can't be used to
+     * probe emails. @return true if this login cancelled a scheduled account deletion.
+     */
+    private boolean authenticate(String email, String password, HttpServletRequest request, HttpServletResponse response) {
         Authentication authRequest = UsernamePasswordAuthenticationToken.unauthenticated(email.strip().toLowerCase(), password);
         Authentication result;
         try {
@@ -85,10 +94,22 @@ public class AuthController {
         if (request.getSession(false) != null) {
             request.changeSessionId();
         }
+
+        AppUserDetails authenticated = (AppUserDetails) result.getPrincipal();
+        boolean reactivated = authenticated.getUser().isPendingDeletion();
+        if (reactivated) {
+            // Signing in with the right password is exactly what cancels a scheduled deletion.
+            // Rebuild the principal from the now-ACTIVE account so the session reflects that
+            // straight away, rather than waiting for ActiveAccountFilter's next-request refresh.
+            AppUserDetails refreshed = new AppUserDetails(accountDeletionService.cancelDeletion(authenticated.getUser().getId()));
+            result = UsernamePasswordAuthenticationToken.authenticated(refreshed, null, refreshed.getAuthorities());
+        }
+
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(result);
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, request, response);
+        return reactivated;
     }
 
     private za.ac.skiet.vyou2.domain.UserAccount currentUser() {

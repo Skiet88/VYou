@@ -1,6 +1,7 @@
 package za.ac.skiet.vyou2.security;
 
 import za.ac.skiet.vyou2.domain.UserAccount;
+import za.ac.skiet.vyou2.domain.UserStatus;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -52,6 +53,8 @@ public class AppUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return user.isActive();
+        // SUSPENDED can never authenticate. PENDING_DELETION can: signing back in is exactly how
+        // a scheduled deletion gets cancelled (see AuthController/AccountDeletionService).
+        return user.getStatus() != UserStatus.SUSPENDED;
     }
 }

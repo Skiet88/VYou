@@ -19,6 +19,11 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
 
     Page<InterviewSession> findByUserIdAndStatus(UUID userId, InterviewStatus status, Pageable pageable);
 
+    /** Unpaged: used only by account purge, which needs every session id for a user at once. */
+    List<InterviewSession> findAllByUserId(UUID userId);
+
+    void deleteByUserId(UUID userId);
+
     /** Interview totals per user for a page of users, in one grouped query. */
     @Query("select s.userId as userId, count(s) as total, "
             + "sum(case when s.status = za.ac.skiet.vyou2.domain.InterviewStatus.COMPLETED then 1 else 0 end) as completed "

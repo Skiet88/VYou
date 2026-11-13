@@ -132,8 +132,15 @@ simply produces an API-only jar.
 - Role and status are re-read from the database on every authenticated request
   (`ActiveAccountFilter`): suspending a user signs them out on their very next request, and a role
   change applies immediately, without a new login.
+- Self-service account deletion has a 30-day grace period (`UserStatus.PENDING_DELETION`,
+  `AccountDeletionService`): requesting it re-checks the password, signs the user out everywhere
+  immediately, and is blocked for the last remaining admin. Signing in again before the 30 days are
+  up cancels it (`LoginResponse.accountReactivated`). A daily job (`AccountPurgeScheduler`,
+  `vyou.account.purge-cron`) permanently deletes accounts once their grace period elapses: their
+  interviews, turns and summaries first, then the account itself.
 - Admins (`/api/admin/**`, `ROLE_ADMIN`) can list users with aggregate numbers and suspend or
-  reinstate them, but never see interview content, and can't suspend themselves or other admins.
+  reinstate them, but never see interview content, and can't suspend themselves, other admins, or
+  an account already scheduled for deletion.
   Admin actions are written to the `vyou.audit` logger with ids only. There is deliberately no
   promote-to-admin endpoint; create the first admin directly in the database:
   `UPDATE users SET role = 'ADMIN' WHERE email = 'you@example.com';`
@@ -160,6 +167,7 @@ requires an active session.
 | GET  | `/api/admin/users` | admin: `?search=&status=ACTIVE\|SUSPENDED&page=0&size=20` → users with interview counts and average score |
 | POST | `/api/admin/users/{id}/suspend` | admin: suspend (not yourself, not another admin) |
 | POST | `/api/admin/users/{id}/reinstate` | admin: reinstate |
+| POST | `/api/account/delete` | `{"password"}` → schedules the caller's own account for deletion in 30 days and signs them out everywhere |
 
 A fixed number of questions per interview (default 5, `vyou.interview.question-count`) auto-completes
 the session on the last answer. A rejected answer (too short, or a repeat of the question) returns

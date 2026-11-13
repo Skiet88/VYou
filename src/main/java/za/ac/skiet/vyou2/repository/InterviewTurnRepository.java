@@ -15,6 +15,9 @@ public interface InterviewTurnRepository extends JpaRepository<InterviewTurn, UU
 
     int countBySessionId(UUID sessionId);
 
+    /** Used by account purge, after the owning sessions have already been collected. */
+    void deleteBySessionIdIn(Collection<UUID> sessionIds);
+
     /** One grouped query for a whole page of sessions, instead of one count per session (N+1). */
     @Query("select t.sessionId as sessionId, count(t) as answered from InterviewTurn t "
             + "where t.sessionId in :sessionIds group by t.sessionId")

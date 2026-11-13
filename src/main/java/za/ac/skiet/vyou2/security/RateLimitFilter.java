@@ -52,7 +52,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private Limit limitFor(HttpServletRequest request) {
         String path = request.getRequestURI();
         String method = request.getMethod();
-        if ("POST".equals(method) && (path.equals("/api/auth/login") || path.equals("/api/auth/signup"))) {
+        // Also covers /api/account/delete: it re-checks the caller's password, so it needs the
+        // same brute-force protection as login.
+        if ("POST".equals(method) && (path.equals("/api/auth/login") || path.equals("/api/auth/signup")
+                || path.equals("/api/account/delete"))) {
             return new Limit("auth:" + clientIp(request), properties.auth());
         }
         boolean aiEndpoint = "POST".equals(method) && path.startsWith("/api/interviews")

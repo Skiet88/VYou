@@ -92,6 +92,28 @@ class InterviewSessionFactoryTest {
     }
 
     @Test
+    void accountDeletionCanBeScheduledThenCancelled() {
+        var user = UserFactory.register("a@example.com", "A", "hash", NOW);
+        var scheduled = UserFactory.scheduleDeletion(user, NOW.plusSeconds(60));
+        assertThat(scheduled.getStatus()).isEqualTo(UserStatus.PENDING_DELETION);
+        assertThat(scheduled.getDeletionScheduledAt()).contains(NOW.plusSeconds(60));
+        assertThat(scheduled.isPendingDeletion()).isTrue();
+        assertThat(scheduled.isActive()).isFalse();
+
+        var cancelled = UserFactory.cancelDeletion(scheduled);
+        assertThat(cancelled.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(cancelled.getDeletionScheduledAt()).isEmpty();
+        assertThat(cancelled.getId()).isEqualTo(user.getId());
+
+        assertThatThrownBy(() -> UserFactory.cancelDeletion(user)).isInstanceOf(DomainValidationException.class);
+        var suspended = UserFactory.withStatus(user, UserStatus.SUSPENDED);
+        assertThatThrownBy(() -> UserFactory.scheduleDeletion(suspended, NOW))
+                .isInstanceOf(DomainValidationException.class);
+        assertThatThrownBy(() -> UserFactory.withStatus(scheduled, UserStatus.SUSPENDED))
+                .isInstanceOf(DomainValidationException.class);
+    }
+
+    @Test
     void summaryAveragesScoresAndRequiresTurns() {
         UUID sessionId = UUID.randomUUID();
         var turns = List.of(

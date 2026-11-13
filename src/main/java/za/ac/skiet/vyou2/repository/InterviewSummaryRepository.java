@@ -14,6 +14,8 @@ public interface InterviewSummaryRepository extends JpaRepository<InterviewSumma
 
     Optional<InterviewSummary> findBySessionId(UUID sessionId);
 
+    void deleteBySessionIdIn(Collection<UUID> sessionIds);
+
     /**
      * Just the (unencrypted) average for each session on a page: the encrypted feedback text is
      * neither loaded nor decrypted for a list view.

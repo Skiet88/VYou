@@ -71,6 +71,9 @@ public class UserAdministrationServiceImpl implements UserAdministrationService 
         if (target.getRole() == UserRole.ADMIN) {
             throw new ConflictException("Admin accounts can't be suspended here");
         }
+        if (target.isPendingDeletion()) {
+            throw new ConflictException("This account is scheduled for deletion and can't be suspended");
+        }
         UserAccount updated = target.getStatus() == UserStatus.SUSPENDED ? target
                 : users.save(UserFactory.withStatus(target, UserStatus.SUSPENDED));
         // Ids only: no names or emails in logs.
@@ -82,6 +85,9 @@ public class UserAdministrationServiceImpl implements UserAdministrationService 
     @Transactional
     public UserOverview reinstate(UUID actingAdminId, UUID userId) {
         UserAccount target = find(userId);
+        if (target.isPendingDeletion()) {
+            throw new ConflictException("This account is scheduled for deletion; signing in as that user cancels it");
+        }
         UserAccount updated = target.getStatus() == UserStatus.ACTIVE ? target
                 : users.save(UserFactory.withStatus(target, UserStatus.ACTIVE));
         audit.info("admin {} reinstated user {}", actingAdminId, userId);

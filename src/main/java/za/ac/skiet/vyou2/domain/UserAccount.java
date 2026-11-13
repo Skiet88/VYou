@@ -39,12 +39,15 @@ public class UserAccount {
     @Column(nullable = false)
     private Instant createdAt;
 
+    /** When a PENDING_DELETION account will be permanently deleted; null otherwise. */
+    private Instant deletionScheduledAt;
+
     protected UserAccount() {
         // for JPA only
     }
 
     public UserAccount(UUID id, String email, String displayName, String passwordHash, UserRole role,
-                       UserStatus status, Instant createdAt) {
+                       UserStatus status, Instant createdAt, Instant deletionScheduledAt) {
         this.id = id;
         this.email = email;
         this.displayName = displayName;
@@ -52,6 +55,7 @@ public class UserAccount {
         this.role = role;
         this.status = status;
         this.createdAt = createdAt;
+        this.deletionScheduledAt = deletionScheduledAt;
     }
 
     public UUID getId() {
@@ -84,5 +88,13 @@ public class UserAccount {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public java.util.Optional<Instant> getDeletionScheduledAt() {
+        return java.util.Optional.ofNullable(deletionScheduledAt);
+    }
+
+    public boolean isPendingDeletion() {
+        return status == UserStatus.PENDING_DELETION;
     }
 }
