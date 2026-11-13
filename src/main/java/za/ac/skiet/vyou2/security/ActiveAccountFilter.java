@@ -71,6 +71,7 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
     private static boolean changed(UserAccount before, UserAccount after) {
         return before.getRole() != after.getRole()
                 || before.getStatus() != after.getStatus()
+                || before.isEmailVerified() != after.isEmailVerified()
                 || !Objects.equals(before.getDisplayName(), after.getDisplayName())
                 || !Objects.equals(before.getEmail(), after.getEmail());
     }

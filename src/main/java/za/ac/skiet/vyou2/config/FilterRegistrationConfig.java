@@ -2,6 +2,7 @@ package za.ac.skiet.vyou2.config;
 
 import za.ac.skiet.vyou2.security.ActiveAccountFilter;
 import za.ac.skiet.vyou2.security.CsrfCookieFilter;
+import za.ac.skiet.vyou2.security.EmailVerificationFilter;
 import za.ac.skiet.vyou2.security.RateLimitFilter;
 import za.ac.skiet.vyou2.security.RequestSizeLimitFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -34,6 +35,11 @@ public class FilterRegistrationConfig {
 
     @Bean
     public FilterRegistrationBean<ActiveAccountFilter> activeAccountFilterRegistration(ActiveAccountFilter filter) {
+        return disabled(filter);
+    }
+
+    @Bean
+    public FilterRegistrationBean<EmailVerificationFilter> emailVerificationFilterRegistration(EmailVerificationFilter filter) {
         return disabled(filter);
     }
 

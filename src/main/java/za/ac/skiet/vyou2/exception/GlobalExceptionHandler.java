@@ -45,6 +45,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Unauthorized", "Invalid email or password");
     }
 
+    @ExceptionHandler(InvalidVerificationTokenException.class)
+    public ProblemDetail handleInvalidVerificationToken(InvalidVerificationTokenException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Invalid request", ex.getMessage());
+    }
+
     @ExceptionHandler(IncorrectPasswordException.class)
     public ProblemDetail handleIncorrectPassword(IncorrectPasswordException ex) {
         return problem(HttpStatus.UNAUTHORIZED, "Unauthorized", "Incorrect password");

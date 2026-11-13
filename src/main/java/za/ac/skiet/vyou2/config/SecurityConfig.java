@@ -2,6 +2,7 @@ package za.ac.skiet.vyou2.config;
 
 import za.ac.skiet.vyou2.security.ActiveAccountFilter;
 import za.ac.skiet.vyou2.security.CsrfCookieFilter;
+import za.ac.skiet.vyou2.security.EmailVerificationFilter;
 import za.ac.skiet.vyou2.security.ProblemDetailAccessDeniedHandler;
 import za.ac.skiet.vyou2.security.ProblemDetailAuthenticationEntryPoint;
 import za.ac.skiet.vyou2.security.RateLimitFilter;
@@ -61,6 +62,7 @@ public class SecurityConfig {
                                            RateLimitFilter rateLimitFilter,
                                            CsrfCookieFilter csrfCookieFilter,
                                            ActiveAccountFilter activeAccountFilter,
+                                           EmailVerificationFilter emailVerificationFilter,
                                            ProblemDetailAuthenticationEntryPoint authenticationEntryPoint,
                                            ProblemDetailAccessDeniedHandler accessDeniedHandler) throws Exception {
         // Matched on the decoded, normalised path, exactly as Spring MVC routes requests. Checking the
@@ -95,6 +97,7 @@ public class SecurityConfig {
                 // AuthenticationEntryPoint overwrites the original response status.
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers("/api/auth/signup", "/api/auth/login").permitAll()
+                .requestMatchers("/api/email-verification/verify").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -105,8 +108,10 @@ public class SecurityConfig {
                 .requestMatchers(frontendPage).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint).accessDeniedHandler(accessDeniedHandler))
-            // Re-checks the account against the database before any authorization decision.
+            // Re-checks the account against the database before any authorization decision, then
+            // blocks an unverified account from everything except what it needs to get verified.
             .addFilterBefore(activeAccountFilter, AuthorizationFilter.class)
+            .addFilterAfter(emailVerificationFilter, ActiveAccountFilter.class)
             .addFilterAfter(rateLimitFilter, AuthorizationFilter.class)
             .addFilterAfter(csrfCookieFilter, org.springframework.security.web.authentication.www.BasicAuthenticationFilter.class)
             .addFilterBefore(requestSizeLimitFilter, org.springframework.security.web.context.SecurityContextHolderFilter.class);

@@ -47,6 +47,20 @@ export VYOU_ENCRYPTION_KEY=$(openssl rand -base64 32)   # AES-256 key for answer
 The app refuses to start without `VYOU_ENCRYPTION_KEY`. It starts fine without `GITHUB_TOKEN`; AI
 endpoints then return `503` with a message explaining what to set.
 
+It also starts fine with no mail configured: signup still works, but the verification email is
+just logged and dropped (`VYOU_MAIL_USERNAME` blank). To send real email, set a Gmail App Password
+(Google Account → Security → 2-Step Verification → App passwords) as `VYOU_MAIL_USERNAME`/
+`VYOU_MAIL_PASSWORD`:
+
+```bash
+export VYOU_MAIL_USERNAME=you@gmail.com VYOU_MAIL_PASSWORD=<16-char app password>
+```
+
+`VYOU_MAIL_HOST`/`VYOU_MAIL_PORT` default to Gmail's SMTP (`smtp.gmail.com:587`); set them to use a
+different provider. `VYOU_FRONTEND_BASE_URL` overrides the origin put into verification links -
+leave it unset for the normal single-origin deployment described in "Production build" below,
+where it's derived from the incoming request.
+
 To use a different OpenAI-compatible provider, set `VYOU_LLM_BASE_URL`, `VYOU_LLM_MODEL` and
 `VYOU_LLM_API_KEY`. For Groq: `https://api.groq.com/openai/v1` with `openai/gpt-oss-120b`.
 
@@ -91,8 +105,11 @@ new page's heading); the three-step new-interview wizard (`/interviews/new`, ste
 works); and the interview itself (`/interviews/:id`): question, answer, practice-mode feedback or a
 saved confirmation, end-early confirmation, and a summary-first completion view with a collapsed
 question-by-question breakdown; the Interviews list (`/interviews`: All / In progress / Completed
-filter, 10 per page, filter and page in the URL); and, for admins only, Users (`/users`: search,
-Active / Suspended filter, suspend with confirmation, reinstate). A 401 from any request is treated
+filter, 10 per page, filter and page in the URL); for admins only, Users (`/users`: search,
+Active / Suspended filter, suspend with confirmation, reinstate); and email verification
+(`/verify-email/pending`: shown instead of the app to a signed-in-but-unverified account, with a
+resend button and sign out; `/verify-email?token=...`: the public page a verification email's link
+opens, signed in or out). A 401 from any request is treated
 as "signed out" everywhere: the user is sent to sign in (and back afterwards) and cached data from
 the old session is dropped. Typed answers are
 kept in memory only and survive every failure (rejection, AI unavailable, rate limit).
@@ -132,6 +149,14 @@ simply produces an API-only jar.
 - Role and status are re-read from the database on every authenticated request
   (`ActiveAccountFilter`): suspending a user signs them out on their very next request, and a role
   change applies immediately, without a new login.
+- New accounts must verify their email before using any API endpoint except auth, account
+  deletion and verification itself (`EmailVerificationFilter`, `EMAIL_NOT_VERIFIED` error code);
+  existing accounts from before this feature are considered already verified. The verification
+  link's token is a random 32-byte value; only its SHA-256 hash is stored, and it expires after 24
+  hours. `POST /api/email-verification/verify` (public) and `/resend` (signed in; a no-op once
+  verified). This only guards the API: a signed-in but unverified visitor can still load the SPA
+  shell directly (e.g. on refresh), and the frontend's own route guard sends them to the
+  pending-verification page once it reads `emailVerified: false` from `GET /api/auth/me`.
 - Self-service account deletion has a 30-day grace period (`UserStatus.PENDING_DELETION`,
   `AccountDeletionService`): requesting it re-checks the password, signs the user out everywhere
   immediately, and is blocked for the last remaining admin. Signing in again before the 30 days are
@@ -168,6 +193,8 @@ requires an active session.
 | POST | `/api/admin/users/{id}/suspend` | admin: suspend (not yourself, not another admin) |
 | POST | `/api/admin/users/{id}/reinstate` | admin: reinstate |
 | POST | `/api/account/delete` | `{"password"}` → schedules the caller's own account for deletion in 30 days and signs them out everywhere |
+| POST | `/api/email-verification/verify` | `{"token"}` → verifies the account the token belongs to (public: works signed in or out) |
+| POST | `/api/email-verification/resend` | sends the caller a fresh verification email; a no-op if already verified |
 
 A fixed number of questions per interview (default 5, `vyou.interview.question-count`) auto-completes
 the session on the last answer. A rejected answer (too short, or a repeat of the question) returns

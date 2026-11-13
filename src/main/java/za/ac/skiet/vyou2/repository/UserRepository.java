@@ -32,4 +32,7 @@ public interface UserRepository extends JpaRepository<UserAccount, UUID> {
 
     /** Accounts whose grace period has elapsed; the purge job deletes each one. */
     List<UserAccount> findByStatusAndDeletionScheduledAtLessThanEqual(UserStatus status, Instant cutoff);
+
+    /** Looked up by the hash of the raw token from a verification link; the raw token is never stored. */
+    Optional<UserAccount> findByVerificationTokenHash(String tokenHash);
 }

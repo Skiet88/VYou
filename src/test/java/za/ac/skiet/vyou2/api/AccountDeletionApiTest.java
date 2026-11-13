@@ -69,7 +69,7 @@ class AccountDeletionApiTest {
 
     private Account signup(String prefix) throws Exception {
         String email = prefix + "-" + UUID.randomUUID() + "@example.com";
-        MockHttpSession session = AuthTestSupport.signup(mvc, mapper, email, "Secret123");
+        MockHttpSession session = AuthTestSupport.signupVerified(mvc, mapper, users, email, "Secret123");
         UUID id = users.findByEmail(email).orElseThrow().getId();
         return new Account(session, id, email);
     }
@@ -223,7 +223,8 @@ class AccountDeletionApiTest {
         var pending = users.findById(account.id()).orElseThrow();
         users.save(new za.ac.skiet.vyou2.domain.UserAccount(pending.getId(), pending.getEmail(), pending.getDisplayName(),
                 pending.getPasswordHash(), pending.getRole(), UserStatus.PENDING_DELETION, pending.getCreatedAt(),
-                clock.instant().minusSeconds(60)));
+                clock.instant().minusSeconds(60), pending.isEmailVerified(),
+                pending.getVerificationTokenHash().orElse(null), pending.getVerificationTokenExpiresAt().orElse(null)));
 
         purgeScheduler.purgeDueAccounts();
 

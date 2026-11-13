@@ -7,6 +7,7 @@ import za.ac.skiet.vyou2.schemas.UserResponse;
 import za.ac.skiet.vyou2.security.AppUserDetails;
 import za.ac.skiet.vyou2.security.CurrentUser;
 import za.ac.skiet.vyou2.service.AccountDeletionService;
+import za.ac.skiet.vyou2.service.EmailVerificationService;
 import za.ac.skiet.vyou2.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,14 +33,19 @@ public class AuthController {
 
     private final UserService userService;
     private final AccountDeletionService accountDeletionService;
+    private final EmailVerificationService emailVerificationService;
+    private final FrontendLinks frontendLinks;
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
 
     public AuthController(UserService userService, AccountDeletionService accountDeletionService,
+                          EmailVerificationService emailVerificationService, FrontendLinks frontendLinks,
                           AuthenticationManager authenticationManager,
                           SecurityContextRepository securityContextRepository) {
         this.userService = userService;
         this.accountDeletionService = accountDeletionService;
+        this.emailVerificationService = emailVerificationService;
+        this.frontendLinks = frontendLinks;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
     }
@@ -48,7 +54,8 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse signup(@Valid @RequestBody SignupRequest request, HttpServletRequest httpRequest,
                                HttpServletResponse httpResponse) {
-        userService.register(request.email(), request.displayName(), request.password());
+        var user = userService.register(request.email(), request.displayName(), request.password());
+        emailVerificationService.sendVerificationEmail(user.getId(), frontendLinks.origin(httpRequest));
         // Log the new user in immediately rather than making them submit the same credentials
         // twice. A brand-new account is never pending deletion, so the return value is ignored.
         authenticate(request.email(), request.password(), httpRequest, httpResponse);

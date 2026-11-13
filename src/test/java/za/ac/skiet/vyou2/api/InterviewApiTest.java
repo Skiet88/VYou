@@ -3,6 +3,7 @@ package za.ac.skiet.vyou2.api;
 import za.ac.skiet.vyou2.exception.LlmUnavailableException;
 import za.ac.skiet.vyou2.llm.ChatMessage;
 import za.ac.skiet.vyou2.llm.LlmClient;
+import za.ac.skiet.vyou2.repository.UserRepository;
 import za.ac.skiet.vyou2.testsupport.AuthTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -78,6 +79,8 @@ class InterviewApiTest {
     private ObjectMapper mapper;
     @Autowired
     private FakeLlm llm;
+    @Autowired
+    private UserRepository users;
 
     @BeforeEach
     void llmUp() {
@@ -224,7 +227,7 @@ class InterviewApiTest {
     }
 
     private MockHttpSession newUser() throws Exception {
-        return AuthTestSupport.signup(mvc, mapper, "user-" + UUID.randomUUID() + "@example.com", "Secret123");
+        return AuthTestSupport.signupVerified(mvc, mapper, users, "user-" + UUID.randomUUID() + "@example.com", "Secret123");
     }
 
     private JsonNode start(MockHttpSession session, String body) throws Exception {

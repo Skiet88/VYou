@@ -60,7 +60,7 @@ class AdminUserApiTest {
 
     private Account signup(String prefix) throws Exception {
         String email = prefix + "-" + UUID.randomUUID() + "@example.com";
-        MockHttpSession session = AuthTestSupport.signup(mvc, mapper, email, "Secret123");
+        MockHttpSession session = AuthTestSupport.signupVerified(mvc, mapper, users, email, "Secret123");
         UUID id = users.findByEmail(email).orElseThrow().getId();
         return new Account(session, id, email);
     }

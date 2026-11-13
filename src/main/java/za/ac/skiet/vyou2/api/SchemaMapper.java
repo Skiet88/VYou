@@ -81,7 +81,7 @@ final class SchemaMapper {
     }
 
     static UserResponse toResponse(UserAccount u) {
-        return new UserResponse(u.getId(), u.getEmail(), u.getDisplayName(), u.getRole(), u.getCreatedAt());
+        return new UserResponse(u.getId(), u.getEmail(), u.getDisplayName(), u.getRole(), u.isEmailVerified(), u.getCreatedAt());
     }
 
     /** Scores are revealed per-turn once feedback is INSTANT, or once the interview is no longer in progress. */

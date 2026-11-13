@@ -11,6 +11,7 @@ import za.ac.skiet.vyou2.factory.InterviewTurnFactory;
 import za.ac.skiet.vyou2.repository.InterviewSessionRepository;
 import za.ac.skiet.vyou2.repository.InterviewSummaryRepository;
 import za.ac.skiet.vyou2.repository.InterviewTurnRepository;
+import za.ac.skiet.vyou2.repository.UserRepository;
 import za.ac.skiet.vyou2.testsupport.AuthTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,12 +60,14 @@ class InterviewListApiTest {
     private InterviewSummaryRepository summaries;
     @Autowired
     private EntityManagerFactory entityManagerFactory;
+    @Autowired
+    private UserRepository users;
 
     private record SignedIn(MockHttpSession session, UUID userId) {
     }
 
     private SignedIn newUser() throws Exception {
-        MockHttpSession session = AuthTestSupport.signup(mvc, mapper, "list-" + UUID.randomUUID() + "@example.com", "Secret123");
+        MockHttpSession session = AuthTestSupport.signupVerified(mvc, mapper, users, "list-" + UUID.randomUUID() + "@example.com", "Secret123");
         String me = mvc.perform(get("/api/auth/me").session(session)).andReturn().getResponse().getContentAsString();
         return new SignedIn(session, UUID.fromString(mapper.readTree(me).get("id").asText()));
     }

@@ -1,5 +1,6 @@
 package za.ac.skiet.vyou2.api;
 
+import za.ac.skiet.vyou2.repository.UserRepository;
 import za.ac.skiet.vyou2.testsupport.AuthTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,8 @@ class RateLimitFilterTest {
     private MockMvc mvc;
     @Autowired
     private ObjectMapper mapper;
+    @Autowired
+    private UserRepository users;
 
     @Test
     void authEndpointIsLimitedByClientIpRegardlessOfCredentials() throws Exception {
@@ -64,8 +67,8 @@ class RateLimitFilterTest {
 
     @Test
     void aiEndpointIsLimitedPerUserNotGlobally() throws Exception {
-        MockHttpSession userA = AuthTestSupport.signup(mvc, mapper, "ratea-" + UUID.randomUUID() + "@example.com", "Secret123");
-        MockHttpSession userB = AuthTestSupport.signup(mvc, mapper, "rateb-" + UUID.randomUUID() + "@example.com", "Secret123");
+        MockHttpSession userA = AuthTestSupport.signupVerified(mvc, mapper, users, "ratea-" + UUID.randomUUID() + "@example.com", "Secret123");
+        MockHttpSession userB = AuthTestSupport.signupVerified(mvc, mapper, users, "rateb-" + UUID.randomUUID() + "@example.com", "Secret123");
 
         // userA's signup already consumed one slot of userA's own bucket (signup logs the user in,
         // but signup itself is not an AI-metered endpoint; only /api/interviews is). So userA has
