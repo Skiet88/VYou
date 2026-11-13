@@ -6,6 +6,8 @@ export const ProblemDetailSchema = z.object({
   status: z.number().nullish(),
   detail: z.string().nullish(),
   reasons: z.array(z.string()).nullish(),
+  /** A stable, machine-checkable error code (e.g. "EMAIL_NOT_VERIFIED"), when the backend sets one. */
+  properties: z.object({ code: z.string().optional() }).nullish(),
 });
 
 export type ProblemDetail = z.infer<typeof ProblemDetailSchema>;

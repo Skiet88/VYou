@@ -17,6 +17,8 @@ interface StoredUser {
   status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_DELETION';
   deletionScheduledAt?: string;
   createdAt: string;
+  emailVerified: boolean;
+  verificationToken?: string;
 }
 
 interface StoredTurn {
@@ -113,7 +115,17 @@ export const backend = {
     state.interviews.set(interview.id, interview);
     return interview;
   },
-  addUser(email: string, password: string, displayName = 'Test User', role: 'USER' | 'ADMIN' = 'USER') {
+  /**
+   * Verified by default: most tests seed a user to use the app right away, the same way the real
+   * backend's test suite uses `signupVerified`. Pass `emailVerified: false` to test the block.
+   */
+  addUser(
+    email: string,
+    password: string,
+    displayName = 'Test User',
+    role: 'USER' | 'ADMIN' = 'USER',
+    emailVerified = true,
+  ) {
     const user: StoredUser = {
       id: crypto.randomUUID(),
       email: email.toLowerCase(),
@@ -122,9 +134,15 @@ export const backend = {
       role,
       status: 'ACTIVE',
       createdAt: new Date(Date.UTC(2026, 0, 1, 8, 0, state.users.size)).toISOString(),
+      emailVerified,
+      verificationToken: emailVerified ? undefined : crypto.randomUUID(),
     };
     state.users.set(user.email, user);
     return user;
+  },
+  /** The current verification token for an unverified user, as a real email link would carry it. */
+  verificationToken(email: string) {
+    return state.users.get(email.toLowerCase())?.verificationToken ?? null;
   },
   /** Creates a user and gives them a session in one step. */
   signedInAs(email = 'thabo@example.com', displayName = 'Thabo', role: 'USER' | 'ADMIN' = 'USER') {
@@ -143,15 +161,41 @@ export const backend = {
   },
 };
 
-const problem = (status: number, title: string, detail: string) =>
-  HttpResponse.json({ type: 'about:blank', title, status, detail }, { status, headers: { 'Content-Type': 'application/problem+json' } });
+const problem = (status: number, title: string, detail: string, properties?: Record<string, unknown>) =>
+  HttpResponse.json(
+    { type: 'about:blank', title, status, detail, ...(properties ? { properties } : {}) },
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  );
 
-const publicUser = ({ id, email, displayName, role, createdAt }: StoredUser) => ({ id, email, displayName, role, createdAt });
+const publicUser = ({ id, email, displayName, role, emailVerified, createdAt }: StoredUser) => ({
+  id,
+  email,
+  displayName,
+  role,
+  emailVerified,
+  createdAt,
+});
 
 function csrfRejected(request: Request) {
   state.lastRequestHeaders = request.headers;
   return request.headers.get('X-XSRF-TOKEN') !== TEST_CSRF_TOKEN ? problem(403, 'Forbidden', 'Forbidden') : null;
 }
+
+const currentUser = () => [...state.users.values()].find((u) => u.id === state.sessionUserId && u.status === 'ACTIVE');
+
+/** Like the backend's ActiveAccountFilter: a suspended account's session no longer works. */
+const requireSession = () => (currentUser() ? null : problem(401, 'Unauthorized', 'Authentication is required'));
+
+/** Like the backend's EmailVerificationFilter: blocked everywhere except auth/account/verification. */
+const requireVerified = () =>
+  currentUser()?.emailVerified === false
+    ? problem(
+        403,
+        'Forbidden',
+        'Verify your email before continuing. Check your inbox, or request a new verification email.',
+        { code: 'EMAIL_NOT_VERIFIED' },
+      )
+    : null;
 
 export const handlers = [
   http.get('*/api/auth/me', () => {
@@ -184,7 +228,7 @@ export const handlers = [
     if (state.users.has(body.email.toLowerCase())) {
       return problem(409, 'Conflict', 'Could not create an account with the details provided');
     }
-    const user = backend.addUser(body.email, body.password, body.displayName);
+    const user = backend.addUser(body.email, body.password, body.displayName, 'USER', false);
     state.sessionUserId = user.id;
     return HttpResponse.json(publicUser(user), { status: 201 });
   }),
@@ -193,6 +237,23 @@ export const handlers = [
     const rejected = csrfRejected(request);
     if (rejected) return rejected;
     state.sessionUserId = null;
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  http.post('*/api/email-verification/verify', async ({ request }) => {
+    const { token } = (await request.json()) as { token: string };
+    const user = [...state.users.values()].find((u) => u.verificationToken === token);
+    if (!user) return problem(400, 'Invalid request', 'That verification link is invalid or has expired.');
+    user.emailVerified = true;
+    user.verificationToken = undefined;
+    return new HttpResponse(null, { status: 200 });
+  }),
+
+  http.post('*/api/email-verification/resend', ({ request }) => {
+    const rejected = csrfRejected(request) ?? requireSession();
+    if (rejected) return rejected;
+    const me = currentUser()!;
+    if (!me.emailVerified) me.verificationToken = crypto.randomUUID();
     return new HttpResponse(null, { status: 200 });
   }),
 ];
@@ -251,15 +312,9 @@ function makeSummary(i: StoredInterview) {
   };
 }
 
-/** Like the backend's ActiveAccountFilter: a suspended account's session no longer works. */
-const requireSession = () => {
-  const active = [...state.users.values()].some((u) => u.id === state.sessionUserId && u.status === 'ACTIVE');
-  return active ? null : problem(401, 'Unauthorized', 'Authentication is required');
-};
-
 handlers.push(
   http.post('*/api/interviews', async ({ request }) => {
-    const rejected = csrfRejected(request) ?? requireSession() ?? aiUnavailable();
+    const rejected = csrfRejected(request) ?? requireSession() ?? requireVerified() ?? aiUnavailable();
     if (rejected) return rejected;
     const body = (await request.json()) as { jobRole: string; level: string; feedbackMode?: 'INSTANT' | 'END_OF_INTERVIEW' };
     const owner = [...state.users.values()].find((u) => u.id === state.sessionUserId)!;
@@ -272,7 +327,7 @@ handlers.push(
   }),
 
   http.get('*/api/interviews/mine', ({ request }) => {
-    const rejected = requireSession();
+    const rejected = requireSession() ?? requireVerified();
     if (rejected) return rejected;
     const url = new URL(request.url);
     const page = Number(url.searchParams.get('page') ?? '0');
@@ -300,7 +355,7 @@ handlers.push(
   }),
 
   http.get('*/api/interviews/:id', ({ params }) => {
-    const rejected = requireSession();
+    const rejected = requireSession() ?? requireVerified();
     if (rejected) return rejected;
     const i = owned(String(params.id));
     if (!i) return notFound();
@@ -308,7 +363,7 @@ handlers.push(
   }),
 
   http.post('*/api/interviews/:id/answers', async ({ request, params }) => {
-    const rejected = csrfRejected(request) ?? requireSession();
+    const rejected = csrfRejected(request) ?? requireSession() ?? requireVerified();
     if (rejected) return rejected;
     const i = owned(String(params.id));
     if (!i) return notFound();
@@ -342,7 +397,7 @@ handlers.push(
   }),
 
   http.post('*/api/interviews/:id/complete', ({ request, params }) => {
-    const rejected = csrfRejected(request) ?? requireSession();
+    const rejected = csrfRejected(request) ?? requireSession() ?? requireVerified();
     if (rejected) return rejected;
     const i = owned(String(params.id));
     if (!i) return notFound();
@@ -356,7 +411,7 @@ handlers.push(
   }),
 
   http.post('*/api/interviews/:id/summary', ({ request, params }) => {
-    const rejected = csrfRejected(request) ?? requireSession();
+    const rejected = csrfRejected(request) ?? requireSession() ?? requireVerified();
     if (rejected) return rejected;
     const i = owned(String(params.id));
     if (!i) return notFound();
@@ -371,8 +426,6 @@ handlers.push(
 );
 
 // ---- Admin: same rules as the backend (admin role required; can't suspend yourself or an admin). ----
-
-const currentUser = () => [...state.users.values()].find((u) => u.id === state.sessionUserId && u.status === 'ACTIVE');
 
 function adminUserJson(u: StoredUser) {
   const theirs = [...state.interviews.values()].filter((i) => i.ownerId === u.id);
@@ -403,7 +456,7 @@ function requireAdmin() {
 
 handlers.push(
   http.get('*/api/admin/users', ({ request }) => {
-    const rejected = requireAdmin();
+    const rejected = requireAdmin() ?? requireVerified();
     if (rejected) return rejected;
     const url = new URL(request.url);
     const search = (url.searchParams.get('search') ?? '').toLowerCase();
@@ -423,7 +476,7 @@ handlers.push(
   }),
 
   http.post('*/api/admin/users/:id/:action', ({ request, params }) => {
-    const rejected = csrfRejected(request) ?? requireAdmin();
+    const rejected = csrfRejected(request) ?? requireAdmin() ?? requireVerified();
     if (rejected) return rejected;
     const target = [...state.users.values()].find((u) => u.id === params.id);
     if (!target) return problem(404, 'Not found', 'User not found');

@@ -100,7 +100,13 @@ async function toApiError(response: Response): Promise<ApiError> {
   try {
     const result = ProblemDetailSchema.safeParse(await response.json());
     if (result.success) {
-      return new ApiError('http', response.status, result.data.detail ?? null, result.data.reasons ?? []);
+      return new ApiError(
+        'http',
+        response.status,
+        result.data.detail ?? null,
+        result.data.reasons ?? [],
+        result.data.properties?.code ?? null,
+      );
     }
   } catch {
     // Not JSON (e.g. a bare 403 or a proxy error page): fall through to a detail-less error.

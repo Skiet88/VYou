@@ -1,7 +1,8 @@
 import { Route, Routes } from 'react-router-dom';
-import { RedirectIfAuthenticated, RequireAdmin, RequireAuth } from '../auth/RouteGuards';
+import { RedirectIfAuthenticated, RequireAdmin, RequireAuth, RequireUnverified } from '../auth/RouteGuards';
 import { AccountSettingsPage } from '../pages/AccountSettingsPage';
 import { DashboardPage } from '../pages/DashboardPage';
+import { EmailVerificationPendingPage } from '../pages/EmailVerificationPendingPage';
 import { InterviewPage } from '../pages/InterviewPage';
 import { InterviewsPage } from '../pages/InterviewsPage';
 import { LoginPage } from '../pages/LoginPage';
@@ -9,6 +10,7 @@ import { NewInterviewPage } from '../pages/NewInterviewPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { SignupPage } from '../pages/SignupPage';
 import { UsersPage } from '../pages/UsersPage';
+import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { AppShell } from './AppShell';
 import { useRecordInitialLocation } from './navigationFocus';
 
@@ -39,6 +41,15 @@ export function AppRoutes() {
       </Route>
       <Route path="/login" element={<RedirectIfAuthenticated><LoginPage /></RedirectIfAuthenticated>} />
       <Route path="/signup" element={<RedirectIfAuthenticated><SignupPage /></RedirectIfAuthenticated>} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route
+        path="/verify-email/pending"
+        element={
+          <RequireUnverified>
+            <EmailVerificationPendingPage />
+          </RequireUnverified>
+        }
+      />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

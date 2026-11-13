@@ -9,14 +9,22 @@ export class ApiError extends Error {
   readonly status: number;
   readonly detail: string | null;
   readonly reasons: readonly string[];
+  readonly code: string | null;
 
-  constructor(kind: ApiErrorKind, status: number, detail: string | null, reasons: readonly string[] = []) {
+  constructor(
+    kind: ApiErrorKind,
+    status: number,
+    detail: string | null,
+    reasons: readonly string[] = [],
+    code: string | null = null,
+  ) {
     super(detail ?? `Request failed (${kind}${status ? `, HTTP ${status}` : ''})`);
     this.name = 'ApiError';
     this.kind = kind;
     this.status = status;
     this.detail = detail;
     this.reasons = reasons;
+    this.code = code;
   }
 }
 

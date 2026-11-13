@@ -5,7 +5,7 @@ import { expectNoAxeViolations } from '../../test/a11y';
 import { renderApp } from '../../test/renderApp';
 
 describe('Sign-up flow', () => {
-  it('creates an account, signs the user in and lands on the dashboard', async () => {
+  it('creates an account, signs the user in, and asks them to verify their email', async () => {
     const { user } = renderApp(['/signup']);
 
     await user.type(await screen.findByLabelText('Your name'), 'Lerato');
@@ -13,7 +13,7 @@ describe('Sign-up flow', () => {
     await user.type(screen.getByLabelText(/create a password/i), 'Secret123');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
-    expect(await screen.findByRole('heading', { name: 'Welcome, Lerato' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Verify your email' })).toBeInTheDocument();
     expect(backend.signedInUserId).not.toBeNull();
   });
 
