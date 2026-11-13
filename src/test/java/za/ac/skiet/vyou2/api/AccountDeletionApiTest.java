@@ -224,7 +224,9 @@ class AccountDeletionApiTest {
         users.save(new za.ac.skiet.vyou2.domain.UserAccount(pending.getId(), pending.getEmail(), pending.getDisplayName(),
                 pending.getPasswordHash(), pending.getRole(), UserStatus.PENDING_DELETION, pending.getCreatedAt(),
                 clock.instant().minusSeconds(60), pending.isEmailVerified(),
-                pending.getVerificationTokenHash().orElse(null), pending.getVerificationTokenExpiresAt().orElse(null)));
+                pending.getVerificationTokenHash().orElse(null), pending.getVerificationTokenExpiresAt().orElse(null),
+                pending.getPasswordChangedAt(), pending.getPasswordResetTokenHash().orElse(null),
+                pending.getPasswordResetTokenExpiresAt().orElse(null)));
 
         purgeScheduler.purgeDueAccounts();
 

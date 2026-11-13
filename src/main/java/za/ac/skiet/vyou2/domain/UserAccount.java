@@ -51,13 +51,28 @@ public class UserAccount {
 
     private Instant verificationTokenExpiresAt;
 
+    /**
+     * When the password last changed. A session caches this at login; if the database value has
+     * since moved on, {@code ActiveAccountFilter} treats that session as stale and signs it out,
+     * so a password reset also ends every other session for the account, not just this one's.
+     */
+    @Column(nullable = false)
+    private Instant passwordChangedAt;
+
+    /** SHA-256 hash of the current password-reset token, hex-encoded. Null once used or never requested. */
+    @Column(unique = true)
+    private String passwordResetTokenHash;
+
+    private Instant passwordResetTokenExpiresAt;
+
     protected UserAccount() {
         // for JPA only
     }
 
     public UserAccount(UUID id, String email, String displayName, String passwordHash, UserRole role,
                        UserStatus status, Instant createdAt, Instant deletionScheduledAt, boolean emailVerified,
-                       String verificationTokenHash, Instant verificationTokenExpiresAt) {
+                       String verificationTokenHash, Instant verificationTokenExpiresAt, Instant passwordChangedAt,
+                       String passwordResetTokenHash, Instant passwordResetTokenExpiresAt) {
         this.id = id;
         this.email = email;
         this.displayName = displayName;
@@ -69,6 +84,9 @@ public class UserAccount {
         this.emailVerified = emailVerified;
         this.verificationTokenHash = verificationTokenHash;
         this.verificationTokenExpiresAt = verificationTokenExpiresAt;
+        this.passwordChangedAt = passwordChangedAt;
+        this.passwordResetTokenHash = passwordResetTokenHash;
+        this.passwordResetTokenExpiresAt = passwordResetTokenExpiresAt;
     }
 
     public UUID getId() {
@@ -121,5 +139,17 @@ public class UserAccount {
 
     public java.util.Optional<Instant> getVerificationTokenExpiresAt() {
         return java.util.Optional.ofNullable(verificationTokenExpiresAt);
+    }
+
+    public Instant getPasswordChangedAt() {
+        return passwordChangedAt;
+    }
+
+    public java.util.Optional<String> getPasswordResetTokenHash() {
+        return java.util.Optional.ofNullable(passwordResetTokenHash);
+    }
+
+    public java.util.Optional<Instant> getPasswordResetTokenExpiresAt() {
+        return java.util.Optional.ofNullable(passwordResetTokenExpiresAt);
     }
 }

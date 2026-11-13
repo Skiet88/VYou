@@ -47,7 +47,8 @@ public class EmailVerificationFilter extends OncePerRequestFilter {
         this.exempt = List.of(
                 paths.matcher("/api/auth/**"),
                 paths.matcher("/api/account/**"),
-                paths.matcher("/api/email-verification/**"));
+                paths.matcher("/api/email-verification/**"),
+                paths.matcher("/api/password-reset/**"));
     }
 
     @Override

@@ -6,18 +6,13 @@ import za.ac.skiet.vyou2.exception.ResourceNotFoundException;
 import za.ac.skiet.vyou2.factory.UserFactory;
 import za.ac.skiet.vyou2.mail.Mailer;
 import za.ac.skiet.vyou2.repository.UserRepository;
+import za.ac.skiet.vyou2.util.SecureTokens;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.UUID;
 
 @Service
@@ -28,7 +23,6 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     private final UserRepository users;
     private final Mailer mailer;
     private final Clock clock;
-    private final SecureRandom random = new SecureRandom();
 
     public EmailVerificationServiceImpl(UserRepository users, Mailer mailer, Clock clock) {
         this.users = users;
@@ -44,11 +38,9 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
         if (user.isEmailVerified()) {
             return;
         }
-        byte[] tokenBytes = new byte[32];
-        random.nextBytes(tokenBytes);
-        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+        String rawToken = SecureTokens.generateRawToken();
         Instant expiresAt = clock.instant().plus(TOKEN_TTL);
-        users.save(UserFactory.withVerificationToken(user, sha256Hex(rawToken), expiresAt));
+        users.save(UserFactory.withVerificationToken(user, SecureTokens.sha256Hex(rawToken), expiresAt));
 
         String link = frontendOrigin + "/verify-email?token=" + rawToken;
         String body = "Hi " + user.getDisplayName() + ",\n\n"
@@ -60,7 +52,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
     @Override
     @Transactional
     public void verify(String rawToken) {
-        UserAccount user = users.findByVerificationTokenHash(sha256Hex(rawToken))
+        UserAccount user = users.findByVerificationTokenHash(SecureTokens.sha256Hex(rawToken))
                 .orElseThrow(() -> invalidToken());
         Instant expiresAt = user.getVerificationTokenExpiresAt().orElseThrow(() -> invalidToken());
         if (clock.instant().isAfter(expiresAt)) {
@@ -71,14 +63,5 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
     private static InvalidVerificationTokenException invalidToken() {
         return new InvalidVerificationTokenException("That verification link is invalid or has expired.");
-    }
-
-    private static String sha256Hex(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 is unavailable", ex);
-        }
     }
 }

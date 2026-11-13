@@ -109,7 +109,9 @@ filter, 10 per page, filter and page in the URL); for admins only, Users (`/user
 Active / Suspended filter, suspend with confirmation, reinstate); and email verification
 (`/verify-email/pending`: shown instead of the app to a signed-in-but-unverified account, with a
 resend button and sign out; `/verify-email?token=...`: the public page a verification email's link
-opens, signed in or out). A 401 from any request is treated
+opens, signed in or out); and password reset (`/forgot-password`: email in, same generic
+confirmation whether or not it's registered; `/reset-password?token=...`: the public page a reset
+email's link opens, with the new-password form). A 401 from any request is treated
 as "signed out" everywhere: the user is sent to sign in (and back afterwards) and cached data from
 the old session is dropped. Typed answers are
 kept in memory only and survive every failure (rejection, AI unavailable, rate limit).
@@ -157,6 +159,14 @@ simply produces an API-only jar.
   verified). This only guards the API: a signed-in but unverified visitor can still load the SPA
   shell directly (e.g. on refresh), and the frontend's own route guard sends them to the
   pending-verification page once it reads `emailVerified: false` from `GET /api/auth/me`.
+- Self-service password reset: `POST /api/password-reset/request` (public, `{"email"}`) always
+  returns `200` whether or not the email is registered, and sends a link only if it is - this can
+  never be used to probe which emails exist. `POST /api/password-reset/reset` (public,
+  `{"token","newPassword"}`) sets the new password; the token is a random 32-byte value (only its
+  SHA-256 hash is stored) and expires after 1 hour. A successful reset signs out every other
+  session for the account, not just the one that performed it: each session's `ActiveAccountFilter`
+  check compares its own cached `passwordChangedAt` against the database's on its next request, and
+  a mismatch is treated the same as a suspended account (401, re-login required).
 - Self-service account deletion has a 30-day grace period (`UserStatus.PENDING_DELETION`,
   `AccountDeletionService`): requesting it re-checks the password, signs the user out everywhere
   immediately, and is blocked for the last remaining admin. Signing in again before the 30 days are
@@ -195,6 +205,8 @@ requires an active session.
 | POST | `/api/account/delete` | `{"password"}` → schedules the caller's own account for deletion in 30 days and signs them out everywhere |
 | POST | `/api/email-verification/verify` | `{"token"}` → verifies the account the token belongs to (public: works signed in or out) |
 | POST | `/api/email-verification/resend` | sends the caller a fresh verification email; a no-op if already verified |
+| POST | `/api/password-reset/request` | `{"email"}` → always `200`; sends a reset link only if the email is registered |
+| POST | `/api/password-reset/reset` | `{"token","newPassword"}` → sets the new password and signs out every other session |
 
 A fixed number of questions per interview (default 5, `vyou.interview.question-count`) auto-completes
 the session on the last answer. A rejected answer (too short, or a repeat of the question) returns

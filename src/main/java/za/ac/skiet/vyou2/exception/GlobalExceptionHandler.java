@@ -50,6 +50,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, "Invalid request", ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ProblemDetail handleInvalidPasswordResetToken(InvalidPasswordResetTokenException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Invalid request", ex.getMessage());
+    }
+
     @ExceptionHandler(IncorrectPasswordException.class)
     public ProblemDetail handleIncorrectPassword(IncorrectPasswordException ex) {
         return problem(HttpStatus.UNAUTHORIZED, "Unauthorized", "Incorrect password");

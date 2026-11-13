@@ -35,4 +35,7 @@ public interface UserRepository extends JpaRepository<UserAccount, UUID> {
 
     /** Looked up by the hash of the raw token from a verification link; the raw token is never stored. */
     Optional<UserAccount> findByVerificationTokenHash(String tokenHash);
+
+    /** Looked up by the hash of the raw token from a password-reset link; the raw token is never stored. */
+    Optional<UserAccount> findByPasswordResetTokenHash(String tokenHash);
 }

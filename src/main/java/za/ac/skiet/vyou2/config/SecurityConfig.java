@@ -98,6 +98,7 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers("/api/auth/signup", "/api/auth/login").permitAll()
                 .requestMatchers("/api/email-verification/verify").permitAll()
+                .requestMatchers("/api/password-reset/request", "/api/password-reset/reset").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")

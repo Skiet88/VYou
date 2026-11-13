@@ -56,7 +56,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         // same brute-force protection as login.
         if ("POST".equals(method) && (path.equals("/api/auth/login") || path.equals("/api/auth/signup")
                 || path.equals("/api/account/delete") || path.equals("/api/email-verification/resend")
-                || path.equals("/api/email-verification/verify"))) {
+                || path.equals("/api/email-verification/verify") || path.equals("/api/password-reset/request")
+                || path.equals("/api/password-reset/reset"))) {
             return new Limit("auth:" + clientIp(request), properties.auth());
         }
         boolean aiEndpoint = "POST".equals(method) && path.startsWith("/api/interviews")

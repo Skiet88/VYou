@@ -24,7 +24,12 @@ import java.util.Optional;
  * Role and status come only from the database, on every request, not from what was true at login:
  * - a suspended (or deleted) account is signed out on its very next request, even with a live
  *   session cookie, and gets 401;
- * - a role change in the database applies immediately, so authorization never uses a stale role.
+ * - a role change in the database applies immediately, so authorization never uses a stale role;
+ * - a password reset ends every other session for the account, not just the one that performed
+ *   it: this session's cached passwordChangedAt is compared against the database's, and a
+ *   mismatch is treated the same as an inactive account (signed out, 401), since neither this
+ *   session's own stale copy of the password hash nor its authority to act as this user should
+ *   survive a reset it didn't initiate.
  * Costs one primary-key lookup per authenticated request.
  */
 @Component
@@ -47,7 +52,7 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof AppUserDetails details) {
             Optional<UserAccount> current = users.findById(details.getUser().getId());
-            if (current.isEmpty() || !current.get().isActive()) {
+            if (current.isEmpty() || !current.get().isActive() || passwordChanged(details.getUser(), current.get())) {
                 SecurityContextHolder.clearContext();
                 HttpSession session = request.getSession(false);
                 if (session != null) {
@@ -66,6 +71,10 @@ public class ActiveAccountFilter extends OncePerRequestFilter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    private static boolean passwordChanged(UserAccount cached, UserAccount fresh) {
+        return !cached.getPasswordChangedAt().equals(fresh.getPasswordChangedAt());
     }
 
     private static boolean changed(UserAccount before, UserAccount after) {
