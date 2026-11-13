@@ -14,7 +14,8 @@ interface StoredUser {
   displayName: string;
   password: string;
   role: 'USER' | 'ADMIN';
-  status: 'ACTIVE' | 'SUSPENDED';
+  status: 'ACTIVE' | 'SUSPENDED' | 'PENDING_DELETION';
+  deletionScheduledAt?: string;
   createdAt: string;
 }
 
@@ -65,6 +66,13 @@ export const scoredTurn = (n: number, answer = `My answer to question ${n}, with
 });
 
 export const backend = {
+  /** Puts an existing user straight into PENDING_DELETION, as if they had already requested it. */
+  scheduleDeletion(email: string, daysRemaining = 30) {
+    const user = state.users.get(email.toLowerCase());
+    if (!user) throw new Error(`No user ${email}`);
+    user.status = 'PENDING_DELETION';
+    user.deletionScheduledAt = new Date(Date.now() + daysRemaining * 86_400_000).toISOString();
+  },
   reset() {
     state.users.clear();
     state.sessionUserId = null;
@@ -157,9 +165,16 @@ export const handlers = [
     const body = (await request.json()) as { email: string; password: string };
     if (body.email === RATE_LIMITED_EMAIL) return problem(429, 'Too many requests', 'Too many requests. Please wait and try again.');
     const user = state.users.get(body.email.toLowerCase());
-    if (!user || user.password !== body.password || user.status !== 'ACTIVE') return problem(401, 'Unauthorized', 'Invalid email or password');
+    if (!user || user.password !== body.password || user.status === 'SUSPENDED') {
+      return problem(401, 'Unauthorized', 'Invalid email or password');
+    }
+    const accountReactivated = user.status === 'PENDING_DELETION';
+    if (accountReactivated) {
+      user.status = 'ACTIVE';
+      user.deletionScheduledAt = undefined;
+    }
     state.sessionUserId = user.id;
-    return HttpResponse.json(publicUser(user));
+    return HttpResponse.json({ user: publicUser(user), accountReactivated });
   }),
 
   http.post('*/api/auth/signup', async ({ request }) => {
@@ -375,6 +390,10 @@ function adminUserJson(u: StoredUser) {
   };
 }
 
+function isLastAdmin(user: StoredUser) {
+  return user.role === 'ADMIN' && [...state.users.values()].filter((u) => u.role === 'ADMIN').length <= 1;
+}
+
 function requireAdmin() {
   const me = currentUser();
   if (!me) return problem(401, 'Unauthorized', 'Authentication is required');
@@ -430,3 +449,20 @@ export const adminBackend = {
     if (u) u.status = 'SUSPENDED';
   },
 };
+
+handlers.push(
+  http.post('*/api/account/delete', async ({ request }) => {
+    const rejected = csrfRejected(request) ?? requireSession();
+    if (rejected) return rejected;
+    const me = currentUser()!;
+    const body = (await request.json()) as { password: string };
+    if (body.password !== me.password) return problem(401, 'Unauthorized', 'Incorrect password');
+    if (isLastAdmin(me)) {
+      return problem(409, 'Conflict', "You're the only admin. Promote another admin before deleting your account.");
+    }
+    me.status = 'PENDING_DELETION';
+    me.deletionScheduledAt = new Date(Date.now() + 30 * 86_400_000).toISOString();
+    state.sessionUserId = null;
+    return new HttpResponse(null, { status: 200 });
+  }),
+);

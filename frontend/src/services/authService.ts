@@ -1,10 +1,11 @@
 import type { LoginInput, SignupInput } from '../schemas/auth';
+import { LoginResultSchema, type LoginResult } from '../schemas/account';
 import { UserSchema, type User } from '../schemas/user';
 import { ApiError } from './apiError';
 import type { HttpClient } from './httpClient';
 
 export interface AuthService {
-  login(input: LoginInput): Promise<User>;
+  login(input: LoginInput): Promise<LoginResult>;
   signup(input: SignupInput): Promise<User>;
   logout(): Promise<void>;
   /** The signed-in user, or null when there is no valid session. */
@@ -13,7 +14,7 @@ export interface AuthService {
 
 export function createAuthService(http: HttpClient): AuthService {
   return {
-    login: (input) => http.post('/auth/login', input, UserSchema),
+    login: (input) => http.post('/auth/login', input, LoginResultSchema),
     signup: (input) => http.post('/auth/signup', input, UserSchema),
     logout: () => http.postWithoutResponse('/auth/logout'),
     async currentUser() {

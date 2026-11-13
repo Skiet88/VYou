@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCurrentUser, useLogout } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
 import { ThemeToggle } from '../ui/ThemeToggle';
@@ -55,6 +55,9 @@ export function AccountMenu() {
       </button>
       <div id={panelId} className={styles.panel} hidden={!open}>
         <p className={styles.email}>{user.email}</p>
+        <Link to="/account" onClick={() => setOpen(false)}>
+          Account settings
+        </Link>
         <ThemeToggle />
         <Button
           busy={logout.isPending}

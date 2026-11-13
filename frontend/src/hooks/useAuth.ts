@@ -15,8 +15,22 @@ export function useLogin() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: LoginInput) => auth.login(input),
-    onSuccess: (user) => queryClient.setQueryData(queryKeys.currentUser, user),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.currentUser, result.user);
+      if (result.accountReactivated) queryClient.setQueryData(queryKeys.accountReactivatedFlash, true);
+    },
   });
+}
+
+/** True for exactly one render after a login that cancelled a scheduled account deletion. */
+export function useAccountReactivatedFlash() {
+  const { data } = useQuery({
+    queryKey: queryKeys.accountReactivatedFlash,
+    queryFn: () => false,
+    initialData: false,
+    staleTime: Infinity,
+  });
+  return Boolean(data);
 }
 
 export function useSignup() {

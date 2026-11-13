@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import { RedirectIfAuthenticated, RequireAdmin, RequireAuth } from '../auth/RouteGuards';
+import { AccountSettingsPage } from '../pages/AccountSettingsPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { InterviewPage } from '../pages/InterviewPage';
 import { InterviewsPage } from '../pages/InterviewsPage';
@@ -23,6 +24,7 @@ export function AppRoutes() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="account" element={<AccountSettingsPage />} />
         <Route path="interviews" element={<InterviewsPage />} />
         <Route path="interviews/new" element={<NewInterviewPage />} />
         <Route path="interviews/:id" element={<InterviewPage />} />

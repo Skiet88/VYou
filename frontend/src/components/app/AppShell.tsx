@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useCurrentUser } from '../../hooks/useAuth';
+import { useAccountReactivatedFlash, useCurrentUser } from '../../hooks/useAuth';
 import { AccountMenu } from './AccountMenu';
+import { DismissibleBanner } from './DismissibleBanner';
 import { isInitialLocation } from './navigationFocus';
 import styles from './AppShell.module.css';
 
@@ -21,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppShell() {
   const { data: user } = useCurrentUser();
+  const accountReactivated = useAccountReactivatedFlash();
   const location = useLocation();
   // The small-screen menu remembers which page it was opened on, so it is closed again
   // automatically after any navigation, with no effect needed.
@@ -80,6 +82,7 @@ export function AppShell() {
           </ul>
         </nav>
         <main id="main-content" ref={mainRef} tabIndex={-1} className={styles.main}>
+          {accountReactivated && <DismissibleBanner>Welcome back — your account deletion was cancelled.</DismissibleBanner>}
           <Outlet />
         </main>
       </div>
