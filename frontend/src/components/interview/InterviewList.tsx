@@ -1,17 +1,18 @@
 import { Link } from 'react-router-dom';
 import type { InterviewListItem } from '../../schemas/interview';
 import { formatDate } from '../../util/format';
+import { Badge } from '../ui/Badge';
 import { ScoreValue } from '../ui/ScoreList';
 import { LEVEL_LABELS } from './labels';
 import styles from './InterviewList.module.css';
 
 /** Status is always spelled out in text, never shown by colour alone. */
 function StatusText({ item }: { item: InterviewListItem }) {
-  if (item.status === 'COMPLETED') return <span>Completed</span>;
+  if (item.status === 'COMPLETED') return <Badge tone="success">Completed</Badge>;
   return (
-    <span>
+    <Badge tone="warning">
       In progress, {item.questionsAnswered} of {item.totalQuestions} answered
-    </span>
+    </Badge>
   );
 }
 
@@ -29,7 +30,9 @@ export function InterviewList({ items, label = 'Your interviews' }: { items: Int
               {item.jobRole}
             </Link>
             <p className={styles.meta}>
-              {LEVEL_LABELS[item.level]} · {formatDate(item.startedAt)} · <StatusText item={item} />
+              <Badge tone="info">{LEVEL_LABELS[item.level]}</Badge>
+              <span>{formatDate(item.startedAt)}</span>
+              <StatusText item={item} />
             </p>
           </div>
           <div className={styles.score}>

@@ -40,6 +40,15 @@ const PAIRS: Array<[string, string, number]> = [
   ['color-border', 'color-bg', 3], // input boundaries
   ['color-border', 'color-surface', 3],
   ['color-focus', 'color-bg', 3], // focus ring
+  ['color-text', 'color-card', 4.5],
+  ['color-text-muted', 'color-card', 4.5],
+  ['color-accent', 'color-card', 4.5],
+  ['color-accent', 'color-accent-surface', 4.5], // active pill / badge
+  ['color-error', 'color-card', 4.5],
+  ['color-success', 'color-success-surface', 4.5],
+  ['color-warning', 'color-warning-surface', 4.5],
+  ['color-info', 'color-info-surface', 4.5],
+  ['color-border', 'color-card', 3],
 ];
 
 describe.each([

@@ -17,11 +17,14 @@ describe('App shell', () => {
     expect(within(nav).getByRole('link', { name: 'Interviews' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('marks Interviews as current on nested interview pages too', async () => {
+  it('marks New interview, and only that, as current while starting one', async () => {
     backend.signedInAs();
     renderApp(['/interviews/new']);
-    await screen.findByRole('heading', { name: 'What role are you practising for?' });
-    expect(within(mainNav()).getByRole('link', { name: 'Interviews' })).toHaveAttribute('aria-current', 'page');
+    await screen.findByRole('heading', {
+      name: 'What role are you practising for?',
+    });
+    expect(within(mainNav()).getByRole('link', { name: 'New interview' })).toHaveAttribute('aria-current', 'page');
+    expect(within(mainNav()).getByRole('link', { name: 'Interviews' })).not.toHaveAttribute('aria-current');
   });
 
   it('only shows Users to admins, and hides the page itself from everyone else', async () => {
@@ -63,7 +66,9 @@ describe('App shell', () => {
   it('account menu opens, closes on Escape returning focus, and signs out', async () => {
     backend.signedInAs();
     const { user } = renderApp(['/']);
-    const toggle = await screen.findByRole('button', { name: /account menu for thabo/i });
+    const toggle = await screen.findByRole('button', {
+      name: /account menu for thabo/i,
+    });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
     await user.click(toggle);
@@ -96,7 +101,9 @@ describe('App shell', () => {
   it('shows breadcrumbs on nested pages', async () => {
     backend.signedInAs();
     renderApp(['/interviews/new']);
-    const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    const crumbs = await screen.findByRole('navigation', {
+      name: 'Breadcrumb',
+    });
     expect(within(crumbs).getByRole('link', { name: 'Interviews' })).toHaveAttribute('href', '/interviews');
     expect(within(crumbs).getByText('New interview')).toHaveAttribute('aria-current', 'page');
   });

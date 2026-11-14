@@ -1,4 +1,5 @@
 import type { InterviewPage } from '../../schemas/interview';
+import { Icon } from '../ui/Icon';
 import { ScoreValue } from '../ui/ScoreList';
 import styles from './Dashboard.module.css';
 
@@ -15,11 +16,21 @@ export function ProgressSummary({ completed }: { completed: InterviewPage }) {
       <h2 id="progress-heading">Your progress</h2>
       <dl className={styles.stats}>
         <div className={styles.stat}>
-          <dt>Interviews completed</dt>
+          <dt>
+            <span className={[styles.statIcon, styles.statIconSuccess].join(' ')}>
+              <Icon name="check" />
+            </span>
+            Interviews completed
+          </dt>
           <dd>{completed.totalItems}</dd>
         </div>
         <div className={styles.stat}>
-          <dt>Recent average</dt>
+          <dt>
+            <span className={styles.statIcon}>
+              <Icon name="chart" />
+            </span>
+            Recent average
+          </dt>
           <dd>
             {recentAverage === null ? '—' : <ScoreValue value={recentAverage} decimals={1} />}
             <span className={styles.statNote}>

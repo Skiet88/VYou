@@ -1,5 +1,6 @@
 import type { AdminUser } from '../../schemas/admin';
 import { formatDate } from '../../util/format';
+import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import styles from './UserAdmin.module.css';
 
@@ -22,17 +23,22 @@ export function UserRow({ user, isSelf, busy, onSuspend, onReinstate }: UserRowP
   const suspended = user.status === 'SUSPENDED';
   return (
     <li className={styles.row}>
-      <div className={styles.main}>
-        <p className={styles.name}>
-          {user.displayName}
-          {isSelf && <span className={styles.tag}>You</span>}
-          {user.role === 'ADMIN' && <span className={styles.tag}>Admin</span>}
-          {suspended && <span className={[styles.tag, styles.suspended].join(' ')}>Suspended</span>}
-        </p>
-        <p className={styles.meta}>{user.email}</p>
-        <p className={styles.meta}>
-          Joined {formatDate(user.createdAt)} · {interviewsText(user)}
-        </p>
+      <div className={styles.identity}>
+        <span className={styles.avatar} aria-hidden="true">
+          {user.displayName.charAt(0).toUpperCase()}
+        </span>
+        <div className={styles.main}>
+          <p className={styles.name}>
+            {user.displayName}
+            {isSelf && <Badge tone="info">You</Badge>}
+            {user.role === 'ADMIN' && <Badge tone="accent">Admin</Badge>}
+            {suspended && <Badge tone="danger">Suspended</Badge>}
+          </p>
+          <p className={styles.meta}>{user.email}</p>
+          <p className={styles.meta}>
+            Joined {formatDate(user.createdAt)} · {interviewsText(user)}
+          </p>
+        </div>
       </div>
       <div className={styles.action}>
         {isSelf || user.role === 'ADMIN' ? null : suspended ? (

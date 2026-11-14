@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Icon } from '../ui/Icon';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import styles from './AuthLayout.module.css';
 
@@ -13,7 +14,12 @@ export function AuthLayout({ title, intro, children, footer }: AuthLayoutProps) 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <span className={styles.brand}>VYou</span>
+        <span className={styles.brand}>
+          <span className={styles.logo}>
+            <Icon name="brain" />
+          </span>
+          VYou
+        </span>
         <ThemeToggle />
       </header>
       <main className={styles.main}>

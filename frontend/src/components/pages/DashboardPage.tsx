@@ -17,7 +17,10 @@ const RECENT_FOR_AVERAGE = 5;
 export function DashboardPage() {
   const { data: user } = useCurrentUser();
   const inProgress = useMyInterviews({ status: 'IN_PROGRESS', size: 1 });
-  const completed = useMyInterviews({ status: 'COMPLETED', size: RECENT_FOR_AVERAGE });
+  const completed = useMyInterviews({
+    status: 'COMPLETED',
+    size: RECENT_FOR_AVERAGE,
+  });
 
   const loading = inProgress.isPending || completed.isPending;
   const failed = inProgress.isError || completed.isError;
@@ -43,7 +46,7 @@ export function DashboardPage() {
             {unfinished ? (
               <ResumeCard interview={unfinished} />
             ) : (
-              <section className={styles.card} aria-labelledby="start-heading">
+              <section className={[styles.card, styles.hero].join(' ')} aria-labelledby="start-heading">
                 <h2 id="start-heading">{hasCompleted ? 'Ready for another?' : 'Your first interview'}</h2>
                 <p className={styles.muted}>
                   {hasCompleted

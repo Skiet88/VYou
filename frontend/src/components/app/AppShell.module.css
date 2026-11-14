@@ -1,7 +1,6 @@
 .shell {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
 }
 
 .skipLink {
@@ -10,7 +9,7 @@
   top: -100px;
   z-index: 100;
   padding: var(--space-2) var(--space-4);
-  background: var(--color-bg);
+  background: var(--color-card);
   border: 2px solid var(--color-focus);
   border-radius: var(--radius);
 }
@@ -19,30 +18,132 @@
   top: var(--space-2);
 }
 
+/* The sidebar keeps the brand gradient in both themes, so its colours are fixed, not themed. */
+.sidebar {
+  position: sticky;
+  top: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6) var(--space-3) var(--space-4);
+  background: var(--gradient-brand);
+  color: #ffffff;
+  overflow-y: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) var(--space-6);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: #ffffff;
+}
+
+.logo {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background: var(--gradient-logo);
+  color: #ffffff;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.brandName {
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.brandTag {
+  color: #c9c6e8;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.navList {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius);
+  color: #d0cee6;
+  text-decoration: none;
+}
+
+.navLink:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: #ffffff;
+}
+
+.navLink:focus-visible,
+.brand:focus-visible {
+  outline-color: #ffffff;
+}
+
+.active,
+.active:hover {
+  background: rgb(108 99 255 / 0.28);
+  border-left-color: #8f88ff;
+  color: #ffffff;
+  font-weight: var(--font-weight-strong);
+}
+
+.sidebarFooter {
+  padding: var(--space-4) var(--space-2) 0;
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+  color: #b9b6d8;
+  font-size: 0.75rem;
+}
+
+.column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-8);
+  background: var(--color-card);
+  border-bottom: 1px solid var(--color-card-border);
 }
 
 .topbarStart {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.brand {
-  color: var(--color-text);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-strong);
-  text-decoration: none;
-}
-
-.brand:hover {
-  color: var(--color-text);
 }
 
 .menuButton {
@@ -58,50 +159,10 @@
   cursor: pointer;
 }
 
-.body {
-  flex: 1;
-  display: flex;
-}
-
-.sidebar {
-  width: 14rem;
-  flex-shrink: 0;
-  padding: var(--space-6) var(--space-4);
-  border-right: 1px solid var(--color-border);
-}
-
-.navList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.navLink {
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.navLink:hover {
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-.active {
-  background: var(--color-surface);
-  font-weight: var(--font-weight-strong);
-  box-shadow: inset 3px 0 0 var(--color-accent);
-}
-
 .main {
   flex: 1;
   min-width: 0;
-  padding: var(--space-8) var(--space-6) var(--space-12);
+  padding: var(--space-8) var(--space-8) var(--space-12);
 }
 
 .main:focus {
@@ -109,25 +170,31 @@
 }
 
 @media (max-width: 48rem) {
+  .shell {
+    flex-direction: column;
+  }
+
   .menuButton {
     display: inline-flex;
     align-items: center;
   }
 
-  .body {
-    flex-direction: column;
+  /* Small screens: the bar stays first, and the menu opens beneath it. */
+  .column {
+    order: 1;
   }
 
   .sidebar {
     display: none;
+    position: static;
+    order: 2;
     width: auto;
-    padding: var(--space-2) var(--space-4) var(--space-4);
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border);
+    height: auto;
   }
 
   .sidebarOpen {
-    display: block;
+    display: flex;
+    order: 0;
   }
 
   .topbar {

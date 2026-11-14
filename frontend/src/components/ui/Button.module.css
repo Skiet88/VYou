@@ -2,13 +2,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-2);
   min-height: var(--control-height);
   padding: 0 var(--space-6);
   border-radius: var(--radius);
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
   font: inherit;
   font-weight: var(--font-weight-strong);
   cursor: pointer;
+  transition:
+    background-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.1s;
 }
 
 .button:disabled {
@@ -16,23 +21,32 @@
   opacity: 0.7;
 }
 
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* A solid colour sits under the gradient, so the text contrast holds wherever the gradient is. */
 .primary {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
+  background: #4f46e5;
+  background-image: var(--gradient-accent);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgb(79 70 229 / 0.3);
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+  background-image: none;
+  background-color: #4338ca;
+  color: #ffffff;
 }
 
 .secondary {
-  background: transparent;
-  color: var(--color-text);
-  border-color: var(--color-border);
+  background: var(--color-card);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--color-surface);
+  background: var(--color-accent-surface);
 }
 
 .link {
@@ -41,10 +55,10 @@
 
 .primary.link,
 .primary.link:hover {
-  color: var(--color-on-accent);
+  color: #ffffff;
 }
 
 .secondary.link,
 .secondary.link:hover {
-  color: var(--color-text);
+  color: var(--color-accent);
 }

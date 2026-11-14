@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAccountReactivatedFlash, useCurrentUser } from '../../hooks/useAuth';
 import { AccountMenu } from './AccountMenu';
+import { Icon, type IconName } from '../ui/Icon';
 import { DismissibleBanner } from './DismissibleBanner';
 import { isInitialLocation } from './navigationFocus';
 import styles from './AppShell.module.css';
@@ -9,16 +10,28 @@ import styles from './AppShell.module.css';
 interface NavItem {
   to: string;
   label: string;
-  end?: boolean;
+  icon: IconName;
   adminOnly?: boolean;
 }
 
 /** Kept to a handful of top-level destinations; everything else is reached by drilling in. */
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/interviews', label: 'Interviews' },
-  { to: '/users', label: 'Users', adminOnly: true },
+  { to: '/', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/interviews', label: 'Interviews', icon: 'interviews' },
+  { to: '/interviews/new', label: 'New interview', icon: 'plus' },
+  { to: '/users', label: 'Users', icon: 'users', adminOnly: true },
 ];
+
+/**
+ * Interviews stays current on an interview's own page (/interviews/:id), but hands over to
+ * "New interview" on /interviews/new, so exactly one item is ever marked.
+ */
+function isCurrent(item: NavItem, pathname: string): boolean {
+  if (item.to === '/') return pathname === '/';
+  if (item.to === '/interviews')
+    return pathname === '/interviews' || (pathname.startsWith('/interviews/') && pathname !== '/interviews/new');
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
 
 export function AppShell() {
   const { data: user } = useCurrentUser();
@@ -52,35 +65,47 @@ export function AppShell() {
       <a href="#main-content" className={styles.skipLink}>
         Skip to main content
       </a>
-      <header className={styles.topbar}>
-        <div className={styles.topbarStart}>
-          <button
-            type="button"
-            className={styles.menuButton}
-            aria-expanded={navOpen}
-            aria-controls="primary-navigation"
-            onClick={() => setNavOpenOn(navOpen ? null : here)}
-          >
-            Menu
-          </button>
-          <Link to="/" className={styles.brand}>
-            VYou
-          </Link>
-        </div>
-        <AccountMenu />
-      </header>
-      <div className={styles.body}>
-        <nav id="primary-navigation" aria-label="Main" className={[styles.sidebar, navOpen ? styles.sidebarOpen : ''].join(' ')}>
-          <ul className={styles.navList}>
-            {items.map((item) => (
-              <li key={item.to}>
-                <NavLink to={item.to} end={item.end} className={({ isActive }) => [styles.navLink, isActive ? styles.active : ''].join(' ')}>
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+      <nav id="primary-navigation" aria-label="Main" className={[styles.sidebar, navOpen ? styles.sidebarOpen : ''].join(' ')}>
+        <Link to="/" className={styles.brand}>
+          <span className={styles.logo}>
+            <Icon name="brain" />
+          </span>
+          <span className={styles.brandText}>
+            <span className={styles.brandName}>VYou</span>
+            <span className={styles.brandTag}>Interview AI</span>
+          </span>
+        </Link>
+        <ul className={styles.navList}>
+          {items.map((item) => (
+            <li key={item.to}>
+              <Link
+                to={item.to}
+                aria-current={isCurrent(item, location.pathname) ? 'page' : undefined}
+                className={[styles.navLink, isCurrent(item, location.pathname) ? styles.active : ''].join(' ')}
+              >
+                <Icon name={item.icon} />
+                {item.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <p className={styles.sidebarFooter}>Practise. Get feedback. Improve.</p>
+      </nav>
+      <div className={styles.column}>
+        <header className={styles.topbar}>
+          <div className={styles.topbarStart}>
+            <button
+              type="button"
+              className={styles.menuButton}
+              aria-expanded={navOpen}
+              aria-controls="primary-navigation"
+              onClick={() => setNavOpenOn(navOpen ? null : here)}
+            >
+              Menu
+            </button>
+          </div>
+          <AccountMenu />
+        </header>
         <main id="main-content" ref={mainRef} tabIndex={-1} className={styles.main}>
           {accountReactivated && <DismissibleBanner>Welcome back — your account deletion was cancelled.</DismissibleBanner>}
           <Outlet />

@@ -11,19 +11,23 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--control-height);
-  padding: 0 var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  padding: 0 var(--space-6);
+  border: 1.5px solid var(--color-card-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-card);
   color: var(--color-text);
   text-decoration: none;
 }
 
 .link:hover {
-  background: var(--color-surface);
+  border-color: var(--color-accent);
   color: var(--color-text);
 }
 
-.current {
-  border: 2px solid var(--color-accent);
+.current,
+.current:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-surface);
+  color: var(--color-accent);
   font-weight: var(--font-weight-strong);
 }
