@@ -48,16 +48,18 @@ The app refuses to start without `VYOU_ENCRYPTION_KEY`. It starts fine without `
 endpoints then return `503` with a message explaining what to set.
 
 It also starts fine with no mail configured: signup still works, but the verification email is
-just logged and dropped (`VYOU_MAIL_USERNAME` blank). To send real email, set a Gmail App Password
-(Google Account → Security → 2-Step Verification → App passwords) as `VYOU_MAIL_USERNAME`/
-`VYOU_MAIL_PASSWORD`:
+just logged and dropped (`RESEND_API_KEY` blank). To send real email, sign up at
+[resend.com](https://resend.com), verify a sending domain there, and set:
 
 ```bash
-export VYOU_MAIL_USERNAME=you@gmail.com VYOU_MAIL_PASSWORD=<16-char app password>
+export RESEND_API_KEY=re_...
+export VYOU_MAIL_FROM=no-reply@yourdomain.com   # must be on the domain verified in Resend
 ```
 
-`VYOU_MAIL_HOST`/`VYOU_MAIL_PORT` default to Gmail's SMTP (`smtp.gmail.com:587`); set them to use a
-different provider. `VYOU_FRONTEND_BASE_URL` overrides the origin put into verification links -
+Email is sent over HTTPS via Resend's API, not SMTP: most PaaS hosts (Render included) block
+outbound SMTP ports to curb spam, so a direct-SMTP provider like Gmail silently times out from a
+deployed instance even with perfectly correct credentials - this only works locally, which is why
+it isn't used here. `VYOU_FRONTEND_BASE_URL` overrides the origin put into verification links -
 leave it unset for the normal single-origin deployment described in "Production build" below,
 where it's derived from the incoming request.
 

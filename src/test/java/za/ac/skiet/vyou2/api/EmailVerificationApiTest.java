@@ -4,12 +4,8 @@ import za.ac.skiet.vyou2.domain.UserAccount;
 import za.ac.skiet.vyou2.factory.UserFactory;
 import za.ac.skiet.vyou2.repository.UserRepository;
 import za.ac.skiet.vyou2.testsupport.AuthTestSupport;
+import za.ac.skiet.vyou2.testsupport.FakeResendServer;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.icegreen.greenmail.configuration.GreenMailConfiguration;
-import com.icegreen.greenmail.util.GreenMail;
-import com.icegreen.greenmail.util.GreenMailUtil;
-import com.icegreen.greenmail.util.ServerSetupTest;
-import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,8 +33,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Exercises real email sending/receiving against a fake SMTP server (GreenMail), so these cover
- * actual email content and delivery, not just the service call that would trigger it.
+ * Exercises real email sending against a fake Resend API (an embedded HTTP server), so these cover
+ * actual email content, not just the service call that would trigger it.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,33 +43,28 @@ class EmailVerificationApiTest {
 
     private static final Pattern LINK = Pattern.compile("(http://\\S+/verify-email\\?token=\\S+)");
 
-    private static GreenMail greenMail;
+    private static FakeResendServer resend;
 
     @DynamicPropertySource
     static void mailProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.mail.host", () -> "127.0.0.1");
-        registry.add("spring.mail.port", () -> ServerSetupTest.SMTP.getPort());
-        registry.add("spring.mail.username", () -> "vyou-test@example.com");
-        registry.add("spring.mail.password", () -> "unused");
-        registry.add("spring.mail.properties.mail.smtp.auth", () -> "false");
-        registry.add("spring.mail.properties.mail.smtp.starttls.enable", () -> "false");
+        registry.add("resend.base-url", () -> "http://127.0.0.1:" + resend.port());
+        registry.add("resend.api-key", () -> "test-key");
+        registry.add("vyou.mail-from", () -> "vyou-test@example.com");
     }
 
     @BeforeAll
-    static void startSmtpServer() {
-        greenMail = new GreenMail(ServerSetupTest.SMTP);
-        greenMail.withConfiguration(GreenMailConfiguration.aConfig().withDisabledAuthentication());
-        greenMail.start();
+    static void startFakeResend() {
+        resend = new FakeResendServer();
     }
 
     @AfterAll
-    static void stopSmtpServer() {
-        greenMail.stop();
+    static void stopFakeResend() {
+        resend.close();
     }
 
     @AfterEach
-    void clearInbox() throws Exception {
-        greenMail.purgeEmailFromAllMailboxes();
+    void clearInbox() {
+        resend.clear();
     }
 
     @Autowired
@@ -138,12 +129,12 @@ class EmailVerificationApiTest {
         mvc.perform(post("/api/email-verification/verify").with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(new VerifyBody(token))))
                 .andExpect(status().isOk());
-        greenMail.purgeEmailFromAllMailboxes();
+        resend.clear();
 
         mvc.perform(post("/api/email-verification/resend").with(csrf()).session(session))
                 .andExpect(status().isOk());
 
-        assertThat(greenMail.getReceivedMessages()).isEmpty();
+        assertThat(resend.count()).isZero();
     }
 
     @Test
@@ -151,7 +142,7 @@ class EmailVerificationApiTest {
         String email = "verify-" + UUID.randomUUID() + "@example.com";
         MockHttpSession session = AuthTestSupport.signup(mvc, mapper, email, "Secret123");
         String firstToken = tokenFromLatestEmail();
-        greenMail.purgeEmailFromAllMailboxes();
+        resend.clear();
 
         mvc.perform(post("/api/email-verification/resend").with(csrf()).session(session))
                 .andExpect(status().isOk());
@@ -189,10 +180,8 @@ class EmailVerificationApiTest {
                 .andExpect(status().isBadRequest());
     }
 
-    private String tokenFromLatestEmail() throws Exception {
-        assertThat(greenMail.waitForIncomingEmail(5000, 1)).isTrue();
-        MimeMessage[] messages = greenMail.getReceivedMessages();
-        String body = GreenMailUtil.getBody(messages[messages.length - 1]);
+    private String tokenFromLatestEmail() {
+        String body = resend.lastEmailText();
         Matcher matcher = LINK.matcher(body);
         assertThat(matcher.find()).as("verification link in email body: %s", body).isTrue();
         String link = matcher.group(1);
