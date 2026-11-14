@@ -60,6 +60,84 @@
   color: var(--color-text-muted);
 }
 
+.chipField,
+.modeField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.chipLabel {
+  font-weight: var(--font-weight-strong);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-card);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--color-accent);
+}
+
+.chipActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-surface);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-strong);
+}
+
+.modeCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+.modeCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius);
+  background: var(--color-card);
+}
+
+.modeCardActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-surface);
+}
+
+.modeCardDisabled {
+  opacity: 0.6;
+}
+
+.modeCardLabel {
+  font-weight: var(--font-weight-strong);
+}
+
+.modeCardHint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (max-width: 30rem) {
+  .modeCards {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 30rem) {
   .summaryRow {
     grid-template-columns: 1fr auto;

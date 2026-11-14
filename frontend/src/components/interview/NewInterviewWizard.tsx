@@ -8,7 +8,8 @@ import { Button } from '../ui/Button';
 import { ErrorSummary, type SummaryItem } from '../ui/ErrorSummary';
 import { RadioGroup } from '../ui/RadioGroup';
 import { TextField } from '../ui/TextField';
-import { FEEDBACK_OPTIONS, LEVEL_LABELS, LEVEL_OPTIONS } from './labels';
+import { FEEDBACK_OPTIONS, LEVEL_LABELS, LEVEL_OPTIONS, MODE_OPTIONS, ROLE_PRESETS } from './labels';
+import { useToast } from '../../hooks/useToast';
 import styles from './Wizard.module.css';
 
 interface Choices {
@@ -70,7 +71,7 @@ export function NewInterviewWizard() {
   if (step === 2) {
     return (
       <LevelStep
-        header={header('What level is the role?')}
+        header={header('What level is the role, and how do you want to answer?')}
         initial={choices.level}
         onBack={() => goTo(1)}
         onNext={(level) => {
@@ -108,21 +109,53 @@ function ResumePrompt() {
 
 function RoleStep({ header, initial, onNext }: { header: ReactNode; initial: string; onNext: (jobRole: string) => void }) {
   const { values, errors, submitCount, setValue, handleSubmit } = useZodForm(RoleStepSchema, { jobRole: initial });
+  const [custom, setCustom] = useState(initial !== '' && !ROLE_PRESETS.includes(initial));
   const items: SummaryItem[] = errors.jobRole ? [{ fieldId: 'jobRole', message: errors.jobRole }] : [];
+
   return (
     <form className={styles.step} noValidate onSubmit={handleSubmit((data) => onNext(data.jobRole))}>
       {header}
       <ResumePrompt />
       <ErrorSummary items={items} focusKey={submitCount} />
-      <TextField
-        id="jobRole"
-        label="Job role"
-        hint="For example, Java Developer, Data Analyst or IT Support Technician."
-        autoComplete="organization-title"
-        value={values.jobRole}
-        onValueChange={(value) => setValue('jobRole', value)}
-        error={errors.jobRole}
-      />
+      <div className={styles.chipField}>
+        <span className={styles.chipLabel}>Job role</span>
+        <div className={styles.chips}>
+          {ROLE_PRESETS.map((role) => (
+            <button
+              key={role}
+              type="button"
+              className={[styles.chip, !custom && values.jobRole === role ? styles.chipActive : ''].join(' ')}
+              onClick={() => {
+                setCustom(false);
+                setValue('jobRole', role);
+              }}
+            >
+              {role}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={[styles.chip, custom ? styles.chipActive : ''].join(' ')}
+            onClick={() => {
+              setCustom(true);
+              setValue('jobRole', '');
+            }}
+          >
+            Custom…
+          </button>
+        </div>
+      </div>
+      {custom && (
+        <TextField
+          id="jobRole"
+          label="Describe the role"
+          hint="For example, Java Developer, Data Analyst or IT Support Technician."
+          autoComplete="organization-title"
+          value={values.jobRole}
+          onValueChange={(value) => setValue('jobRole', value)}
+          error={errors.jobRole}
+        />
+      )}
       <div className={styles.actions}>
         <Button type="submit" variant="primary">
           Continue
@@ -152,12 +185,28 @@ function LevelStep({
       <RadioGroup
         name="level"
         legend="Experience level"
-        legendHidden
         options={LEVEL_OPTIONS}
         value={values.level}
         onValueChange={(value) => setValue('level', value)}
         error={errors.level}
       />
+      <div className={styles.modeField}>
+        <span className={styles.chipLabel}>Interview mode</span>
+        <div className={styles.modeCards}>
+          {MODE_OPTIONS.map((mode) => (
+            <div
+              key={mode.value}
+              className={[styles.modeCard, mode.value === 'TEXT' ? styles.modeCardActive : '', !mode.available ? styles.modeCardDisabled : ''].join(
+                ' ',
+              )}
+              aria-disabled={!mode.available || undefined}
+            >
+              <span className={styles.modeCardLabel}>{mode.label}</span>
+              <span className={styles.modeCardHint}>{mode.hint}</span>
+            </div>
+          ))}
+        </div>
+      </div>
       <div className={styles.actions}>
         <Button type="submit" variant="primary">
           Continue
@@ -183,6 +232,7 @@ function ReviewStep({
 }) {
   const navigate = useNavigate();
   const start = useStartInterview();
+  const { showToast } = useToast();
   const { values, submitCount, setValue, handleSubmit } = useZodForm(FeedbackStepSchema, { feedbackMode: choices.feedbackMode });
   const problem = start.isError ? interviewProblem(start.error) : null;
   const items: SummaryItem[] = problem ? [{ message: problem.message }] : [];
@@ -194,7 +244,12 @@ function ReviewStep({
       onSubmit={handleSubmit(({ feedbackMode }) =>
         start.mutate(
           { jobRole: choices.jobRole, level: choices.level, feedbackMode },
-          { onSuccess: (session) => navigate(`/interviews/${session.id}`) },
+          {
+            onSuccess: (session) => {
+              showToast('Interview started.', 'success');
+              navigate(`/interviews/${session.id}`);
+            },
+          },
         ),
       )}
     >

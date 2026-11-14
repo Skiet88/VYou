@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Services } from './services';
 import { ServicesProvider } from './state/services/ServicesContext';
 import { ThemeProvider } from './state/theme/ThemeContext';
+import { ToastProvider } from './state/toast/ToastContext';
 import { AppErrorBoundary } from './components/app/AppErrorBoundary';
 
 interface AppProvidersProps {
@@ -20,7 +21,9 @@ export function AppProviders({ services, queryClient, children }: AppProvidersPr
     <AppErrorBoundary>
       <ServicesProvider services={services}>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </ThemeProvider>
         </QueryClientProvider>
       </ServicesProvider>
     </AppErrorBoundary>

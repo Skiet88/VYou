@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { FilterLinks } from '../ui/FilterLinks';
 import { Pagination } from '../ui/Pagination';
 import { ErrorState, LoadingState } from '../ui/StatusMessage';
+import { useToast } from '../../hooks/useToast';
 import { TextField } from '../ui/TextField';
 import styles from '../admin/UserAdmin.module.css';
 
@@ -52,8 +53,8 @@ export function UsersPage() {
   const reinstate = useReinstateUser();
   const [draft, setDraft] = useState(search);
   const [confirming, setConfirming] = useState<AdminUser | null>(null);
-  const [announcement, setAnnouncement] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -67,7 +68,7 @@ export function UsersPage() {
   const runAction = (mutation: typeof suspend, user: AdminUser, verb: string) => {
     setActionError(null);
     mutation.mutate(user.id, {
-      onSuccess: () => setAnnouncement(`${user.displayName} ${verb}.`),
+      onSuccess: () => showToast(`${user.displayName} ${verb}.`, 'success'),
       onError: (error) => setActionError(adminActionMessage(error)),
       onSettled: () => setConfirming(null),
     });
@@ -93,9 +94,6 @@ export function UsersPage() {
         label="Filter users"
         options={FILTERS.map((f) => ({ label: f.label, href: href(search, f.status, 0), current: f.status === status }))}
       />
-      <p role="status" className="visually-hidden">
-        {announcement}
-      </p>
       {actionError && (
         <p role="alert" className={styles.muted}>
           {actionError}

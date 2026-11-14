@@ -24,3 +24,25 @@ export const FEEDBACK_OPTIONS: RadioOption[] = [
   { value: 'INSTANT', label: FEEDBACK_LABELS.INSTANT, hint: 'Best for practice: see what to improve straight away.' },
   { value: 'END_OF_INTERVIEW', label: FEEDBACK_LABELS.END_OF_INTERVIEW, hint: 'Closer to a real interview: your scores appear when you finish.' },
 ];
+
+export const ROLE_PRESETS = [
+  'Software Developer',
+  'Data Analyst',
+  'DevOps Engineer',
+  'UI/UX Designer',
+  'Product Manager',
+  'QA Engineer',
+];
+
+export interface ModeOption {
+  value: 'TEXT' | 'VOICE' | 'VIDEO';
+  label: string;
+  hint: string;
+  available: boolean;
+}
+
+export const MODE_OPTIONS: ModeOption[] = [
+  { value: 'TEXT', label: 'Text', hint: 'Type each answer.', available: true },
+  { value: 'VOICE', label: 'Voice', hint: 'Coming soon: speak your answers.', available: false },
+  { value: 'VIDEO', label: 'Video', hint: 'Coming soon: a full video simulation.', available: false },
+];

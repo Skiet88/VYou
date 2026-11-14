@@ -6,8 +6,13 @@ import { renderApp } from '../../test/renderApp';
 
 const location = () => screen.getByTestId('location').textContent;
 
+async function enterCustomRole(user: ReturnType<typeof renderApp>['user'], role: string) {
+  await user.click(await screen.findByRole('button', { name: 'Custom…' }));
+  await user.type(screen.getByLabelText('Describe the role'), role);
+}
+
 async function fillRoleAndLevel(user: ReturnType<typeof renderApp>['user'], role = 'Java Developer', level = /junior/i) {
-  await user.type(await screen.findByLabelText('Job role'), role);
+  await enterCustomRole(user, role);
   await user.click(screen.getByRole('button', { name: 'Continue' }));
   await user.click(await screen.findByRole('radio', { name: level }));
   await user.click(screen.getByRole('button', { name: 'Continue' }));
@@ -36,6 +41,17 @@ describe('New interview wizard', () => {
     expect(created).toMatchObject({ jobRole: 'Data Analyst', level: 'MID', feedbackMode: 'END_OF_INTERVIEW' });
   });
 
+  it('offers role presets as well as a custom role', async () => {
+    backend.signedInAs();
+    const { user } = renderApp(['/interviews/new']);
+
+    await user.click(await screen.findByRole('button', { name: 'Software Developer' }));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await screen.findByRole('radio', { name: /junior/i });
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('button', { name: 'Software Developer' })).toHaveAttribute('class', expect.stringContaining('chipActive'));
+  });
+
   it('requires a role and a level before moving on', async () => {
     backend.signedInAs();
     const { user } = renderApp(['/interviews/new']);
@@ -44,7 +60,7 @@ describe('New interview wizard', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Enter the role you are practising for');
     expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('Job role'), 'Dev');
+    await enterCustomRole(user, 'Dev');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
     const alert = await screen.findByRole('alert');
@@ -63,19 +79,21 @@ describe('New interview wizard', () => {
     await fillRoleAndLevel(user);
 
     await user.click(screen.getByRole('button', { name: 'Change role' }));
-    expect(await screen.findByLabelText('Job role')).toHaveValue('Java Developer');
+    expect(await screen.findByLabelText('Describe the role')).toHaveValue('Java Developer');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     expect(await screen.findByRole('radio', { name: /junior/i })).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByLabelText('Job role')).toHaveValue('Java Developer');
+    expect(await screen.findByLabelText('Describe the role')).toHaveValue('Java Developer');
   });
 
   it('moves focus to the heading of each new step', async () => {
     backend.signedInAs();
     const { user } = renderApp(['/interviews/new']);
-    await user.type(await screen.findByLabelText('Job role'), 'Dev');
+    await enterCustomRole(user, 'Dev');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'What level is the role?' })).toHaveFocus());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'What level is the role, and how do you want to answer?' })).toHaveFocus(),
+    );
   });
 
   it('offers to resume an unfinished interview', async () => {
@@ -88,11 +106,18 @@ describe('New interview wizard', () => {
     expect(screen.getByText('Cloud Engineer')).toBeInTheDocument();
   });
 
-  it('does not offer voice or video modes', async () => {
+  it('shows voice and video as coming soon, with only text selectable', async () => {
     backend.signedInAs();
     const { user } = renderApp(['/interviews/new']);
-    await fillRoleAndLevel(user);
-    expect(screen.queryByText(/voice|video/i)).toBeNull();
+    await enterCustomRole(user, 'Java Developer');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByText('Text')).toBeInTheDocument();
+    expect(screen.getByText('Voice')).toBeInTheDocument();
+    expect(screen.getByText('Video')).toBeInTheDocument();
+    expect(screen.getAllByText(/coming soon/i)).toHaveLength(2);
+    expect(screen.queryByRole('radio', { name: /voice|video/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^voice$|^video$/i })).toBeNull();
   });
 
   it('keeps every choice when the AI is unavailable, and can retry', async () => {
@@ -112,9 +137,9 @@ describe('New interview wizard', () => {
   it('has no detectable accessibility violations on any step', async () => {
     backend.signedInAs();
     const { user, container } = renderApp(['/interviews/new']);
-    await screen.findByLabelText('Job role');
+    await screen.findByRole('button', { name: 'Custom…' });
     await expectNoAxeViolations(container);
-    await user.type(screen.getByLabelText('Job role'), 'Dev');
+    await enterCustomRole(user, 'Dev');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await screen.findByRole('radio', { name: /junior/i });
     await expectNoAxeViolations(container);
